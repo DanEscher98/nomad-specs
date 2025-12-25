@@ -25,26 +25,36 @@ import random
 import struct
 import time
 from dataclasses import dataclass
+from typing import Any
 
 import structlog
 
 # scapy imports - lazy loaded for faster test startup
 _scapy_loaded = False
-_sniff = None
-_sendp = None
-_send = None
-_IP = None
-_UDP = None
-_Raw = None
-_Ether = None
-_conf = None
+_sniff: Any = None
+_sendp: Any = None
+_send: Any = None
+_IP: Any = None
+_UDP: Any = None
+_Raw: Any = None
+_Ether: Any = None
+_conf: Any = None
 
 
-def _ensure_scapy():
+def _ensure_scapy() -> None:
     """Lazy load scapy modules."""
     global _scapy_loaded, _sniff, _sendp, _send, _IP, _UDP, _Raw, _Ether, _conf
     if not _scapy_loaded:
-        from scapy.all import IP, UDP, Ether, Raw, conf, send, sendp, sniff
+        from scapy.all import (  # type: ignore[attr-defined]
+            IP,
+            UDP,
+            Ether,
+            Raw,
+            conf,
+            send,
+            sendp,
+            sniff,
+        )
         _sniff = sniff
         _sendp = sendp
         _send = send
@@ -187,7 +197,7 @@ class MITMAttacker:
 
         captured: list[CapturedFrame] = []
 
-        def packet_callback(pkt):
+        def packet_callback(pkt: Any) -> None:
             if _UDP in pkt and _Raw in pkt:
                 frame = CapturedFrame(
                     data=bytes(pkt[_Raw].load),
@@ -359,6 +369,7 @@ class MITMAttacker:
         if byte is not None:
             tampered[offset] = byte & 0xFF
         else:
+            assert xor_mask is not None  # Guaranteed by validation above
             tampered[offset] ^= xor_mask & 0xFF
 
         self.stats.frames_tampered += 1
@@ -538,17 +549,18 @@ class TimingAnalyzer:
         mean_p = sum(pattern) / n
 
         # Calculate Pearson correlation
-        num = sum(
+        num: float = sum(
             (a - mean_a) * (p - mean_p)
             for a, p in zip(arrivals, pattern, strict=True)
         )
-        denom_a = sum((a - mean_a) ** 2 for a in arrivals) ** 0.5
-        denom_p = sum((p - mean_p) ** 2 for p in pattern) ** 0.5
+        denom_a: float = sum((a - mean_a) ** 2 for a in arrivals) ** 0.5
+        denom_p: float = sum((p - mean_p) ** 2 for p in pattern) ** 0.5
 
         if denom_a * denom_p == 0:
             return 0.0
 
-        return num / (denom_a * denom_p)
+        result: float = num / (denom_a * denom_p)
+        return result
 
     def clear(self) -> None:
         """Clear all recorded samples."""

@@ -1,1 +1,1 @@
-# Adversarial tests for Nomad Protocol
+"""Adversarial security tests for NOMAD protocol."""
