@@ -19,38 +19,22 @@ This repository contains **specifications only** for the NOMAD Protocol, a secur
 
 ## Architecture Layers
 
-```mermaid
-block-beta
-  columns 1
-  block:app["APPLICATION LAYER"]
-    columns 3
-    terminal["MoshiMoshi\n(Terminal)"]
-    whiteboard["Future App\n(Whiteboard)"]
-    game["Future App\n(Game State)"]
-  end
-  block:state["STATE LAYER (domain-specific)"]
-    columns 1
-    statedesc["impl SyncState for YourType"]
-  end
-  block:sync["SYNC LAYER"]
-    columns 1
-    syncdesc["versioning • diffs • convergence • prediction"]
-  end
-  block:transport["TRANSPORT LAYER"]
-    columns 1
-    transportdesc["UDP • framing • connection migration • keepalive"]
-  end
-  block:security["SECURITY LAYER"]
-    columns 1
-    secdesc["Noise_IK • XChaCha20-Poly1305 • BLAKE2s"]
-  end
-
-  terminal --> statedesc
-  whiteboard --> statedesc
-  game --> statedesc
-  statedesc --> syncdesc
-  syncdesc --> transportdesc
-  transportdesc --> secdesc
+```
+┌─────────────────────────────────────────────────────────────┐
+│  APPLICATION     MoshiMoshi • Future Apps (Whiteboard, Game)│
+├─────────────────────────────────────────────────────────────┤
+│  STATE LAYER     Application-defined: impl SyncState        │
+├─────────────────────────────────────────────────────────────┤
+│  EXTENSIONS      compression (zstd) • scrollback • prediction│
+├─────────────────────────────────────────────────────────────┤
+│  SYNC LAYER      versioning • idempotent diffs • convergence │
+├─────────────────────────────────────────────────────────────┤
+│  TRANSPORT       frames • session ID • nonce • keepalive     │
+├─────────────────────────────────────────────────────────────┤
+│  SECURITY        Noise_IK • XChaCha20-Poly1305 • BLAKE2s     │
+├─────────────────────────────────────────────────────────────┤
+│  UDP             unreliable datagrams                        │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ## Directory Structure
@@ -117,18 +101,18 @@ Use **Mermaid** for all diagrams (renders natively on GitHub):
 
 ### Packet Diagram Example
 
-For protocol packet formats in specs, use Mermaid packet diagrams:
+For protocol packet formats in specs, use Mermaid `packet` diagrams with `+<count>` syntax:
 
 ```mermaid
-packet-beta
-  0-7: "Type"
-  8-15: "Flags"
-  16-63: "Session ID (48 bits)"
-  64-127: "Nonce Counter (64 bits)"
-  128-159: "Encrypted Payload..."
+packet
+  +8: "Type"
+  +8: "Flags"
+  +48: "Session ID (6 bytes)"
+  +64: "Nonce Counter (8 bytes)"
+  +64: "Encrypted Payload..."
 ```
 
-This renders better than ASCII art and is maintainable.
+The `+<count>` specifies bits per field. This renders cleanly on GitHub.
 
 ## Test Categories
 

@@ -28,10 +28,10 @@ Extensions are negotiated during handshake:
 ## Extension Format (TLV)
 
 ```mermaid
-packet-beta
-  0-15: "Extension Type (2 bytes)"
-  16-31: "Extension Length (2 bytes)"
-  32-63: "Extension Data (variable)"
+packet
+  +16: "Extension Type (2 bytes)"
+  +16: "Extension Length (2 bytes)"
+  +32: "Extension Data (variable)"
 ```
 
 | Field | Size | Description |
@@ -61,9 +61,9 @@ Enables zstd compression of diff payloads.
 ### Negotiation Data
 
 ```mermaid
-packet-beta
-  0-7: "Compression Level (1 byte)"
-  8-15: "Reserved"
+packet
+  +8: "Compression Level (1 byte)"
+  +8: "Reserved"
 ```
 
 | Field | Value | Description |
@@ -106,8 +106,8 @@ Enables synchronization of terminal scrollback buffer.
 ### Negotiation Data
 
 ```mermaid
-packet-beta
-  0-31: "Max Scrollback Lines (4 bytes)"
+packet
+  +32: "Max Scrollback Lines (4 bytes)"
 ```
 
 | Field | Value | Description |
@@ -126,10 +126,10 @@ When enabled:
 Client → Server (in sync message payload):
 
 ```mermaid
-packet-beta
-  0-7: "Request Type (0x01)"
-  8-39: "Start Line (4 bytes)"
-  40-71: "Line Count (4 bytes)"
+packet
+  +8: "Request Type (0x01)"
+  +32: "Start Line (4 bytes)"
+  +32: "Line Count (4 bytes)"
 ```
 
 ### Scrollback Response
@@ -137,12 +137,12 @@ packet-beta
 Server → Client (in diff payload):
 
 ```mermaid
-packet-beta
-  0-7: "Response Type (0x81)"
-  8-39: "Start Line (4 bytes)"
-  40-71: "Line Count (4 bytes)"
-  72-103: "Data Length (4 bytes)"
-  104-...: "Scrollback Data"
+packet
+  +8: "Response Type (0x81)"
+  +32: "Start Line (4 bytes)"
+  +32: "Line Count (4 bytes)"
+  +32: "Data Length (4 bytes)"
+  +64: "Scrollback Data..."
 ```
 
 ---
@@ -156,8 +156,8 @@ Enables client-side prediction for reduced perceived latency.
 ### Negotiation Data
 
 ```mermaid
-packet-beta
-  0-7: "Prediction Flags"
+packet
+  +8: "Prediction Flags"
 ```
 
 | Bit | Name | Description |

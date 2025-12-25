@@ -36,13 +36,13 @@ class ConnectionState:
 ## Data Frame Format (Type 0x03)
 
 ```mermaid
-packet-beta
-  0-7: "Type (0x03)"
-  8-15: "Flags"
-  16-63: "Session ID (48 bits)"
-  64-127: "Nonce Counter (64 bits)"
-  128-191: "Encrypted Payload..."
-  192-319: "AEAD Tag (16 bytes)"
+packet
+  +8: "Type 0x03"
+  +8: "Flags"
+  +48: "Session ID (6 bytes)"
+  +64: "Nonce Counter (8 bytes)"
+  +64: "Encrypted Payload..."
+  +128: "AEAD Tag (16 bytes)"
 ```
 
 | Field | Size | Description |
@@ -72,11 +72,11 @@ packet-beta
 After decryption:
 
 ```mermaid
-packet-beta
-  0-31: "Timestamp (4 bytes, ms)"
-  32-47: "Payload Length (2 bytes)"
-  48-63: "Reserved (2 bytes)"
-  64-127: "Sync Message (variable)"
+packet
+  +32: "Timestamp (4 bytes, ms)"
+  +16: "Payload Length"
+  +16: "Reserved"
+  +64: "Sync Message..."
 ```
 
 | Field | Size | Description |
@@ -93,13 +93,13 @@ packet-beta
 For graceful termination:
 
 ```mermaid
-packet-beta
-  0-7: "Type (0x05)"
-  8-15: "Flags"
-  16-63: "Session ID (48 bits)"
-  64-127: "Nonce Counter (64 bits)"
-  128-191: "Final Ack (8 bytes, encrypted)"
-  192-319: "AEAD Tag (16 bytes)"
+packet
+  +8: "Type 0x05"
+  +8: "Flags"
+  +48: "Session ID (6 bytes)"
+  +64: "Nonce Counter (8 bytes)"
+  +64: "Final Ack (8 bytes, enc)"
+  +128: "AEAD Tag (16 bytes)"
 ```
 
 | Field | Size | Description |

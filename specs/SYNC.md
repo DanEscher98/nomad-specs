@@ -69,12 +69,12 @@ class SyncState(Protocol):
 ## Sync Message Format
 
 ```mermaid
-packet-beta
-  0-63: "Sender State Num (8 bytes)"
-  64-127: "Acked State Num (8 bytes)"
-  128-191: "Base State Num (8 bytes)"
-  192-223: "Diff Length (4 bytes)"
-  224-287: "Diff Payload (variable)"
+packet
+  +64: "Sender State Num (8 bytes)"
+  +64: "Acked State Num (8 bytes)"
+  +64: "Base State Num (8 bytes)"
+  +32: "Diff Length (4 bytes)"
+  +64: "Diff Payload..."
 ```
 
 | Field | Size | Description |

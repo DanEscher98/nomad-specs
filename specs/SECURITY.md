@@ -45,34 +45,34 @@ Where:
 Initiator → Responder
 
 ```mermaid
-packet-beta
-  0-7: "Type (0x01)"
-  8-15: "Reserved"
-  16-31: "Protocol Version"
-  32-287: "Initiator Ephemeral Public Key (32 bytes)"
-  288-671: "Encrypted Initiator Static Key (32 + 16 tag)"
-  672-799: "Encrypted Payload (variable + 16 tag)"
+packet
+  +8: "Type 0x01"
+  +8: "Reserved"
+  +16: "Protocol Version"
+  +256: "Initiator Ephemeral Public Key (32 bytes)"
+  +384: "Encrypted Initiator Static (32 + 16 tag)"
+  +128: "Encrypted Payload (min 16 tag)"
 ```
 
-| Field | Size | Description |
-|-------|------|-------------|
-| Type | 1 byte | `0x01` (HandshakeInit) |
-| Reserved | 1 byte | `0x00` |
-| Protocol Version | 2 bytes | `0x0001` for v1.0 (LE16) |
-| Initiator Ephemeral | 32 bytes | Unencrypted X25519 public key |
-| Encrypted Static | 48 bytes | Initiator's static key + AEAD tag |
-| Encrypted Payload | variable | State type ID + extensions + AEAD tag |
+| Field | Offset | Size | Description |
+|-------|--------|------|-------------|
+| Type | 0 | 1 byte | `0x01` (HandshakeInit) |
+| Reserved | 1 | 1 byte | `0x00` |
+| Protocol Version | 2 | 2 bytes | `0x0001` for v1.0 (LE16) |
+| Initiator Ephemeral | 4 | 32 bytes | Unencrypted X25519 public key |
+| Encrypted Static | 36 | 48 bytes | Initiator's static key + AEAD tag |
+| Encrypted Payload | 84 | variable | State type ID + extensions + AEAD tag |
 
 **Minimum size:** 100 bytes (4 + 32 + 48 + 16)
 
 ### Encrypted Payload Contents
 
 ```mermaid
-packet-beta
-  0-7: "State Type ID Length"
-  8-71: "State Type ID (UTF-8, variable)"
-  72-79: "Extension Count"
-  80-127: "Extensions (TLV, variable)"
+packet
+  +8: "State Type ID Len"
+  +120: "State Type ID (UTF-8)"
+  +8: "Extension Count"
+  +120: "Extensions (TLV)"
 ```
 
 ---
@@ -82,23 +82,23 @@ packet-beta
 Responder → Initiator
 
 ```mermaid
-packet-beta
-  0-7: "Type (0x02)"
-  8-15: "Reserved"
-  16-63: "Session ID (48 bits)"
-  64-319: "Responder Ephemeral Public Key (32 bytes)"
-  320-447: "Encrypted Payload (variable + 16 tag)"
+packet
+  +8: "Type 0x02"
+  +8: "Reserved"
+  +48: "Session ID (6 bytes)"
+  +256: "Responder Ephemeral Public Key (32 bytes)"
+  +128: "Encrypted Payload (min 16 tag)"
 ```
 
-| Field | Size | Description |
-|-------|------|-------------|
-| Type | 1 byte | `0x02` (HandshakeResp) |
-| Reserved | 1 byte | `0x00` |
-| Session ID | 6 bytes | Random identifier for this session |
-| Responder Ephemeral | 32 bytes | Unencrypted X25519 public key |
-| Encrypted Payload | variable | Ack + negotiated extensions + AEAD tag |
+| Field | Offset | Size | Description |
+|-------|--------|------|-------------|
+| Type | 0 | 1 byte | `0x02` (HandshakeResp) |
+| Reserved | 1 | 1 byte | `0x00` |
+| Session ID | 2 | 6 bytes | Random identifier for this session |
+| Responder Ephemeral | 8 | 32 bytes | Unencrypted X25519 public key |
+| Encrypted Payload | 40 | variable | Ack + negotiated extensions + AEAD tag |
 
-**Minimum size:** 56 bytes (2 + 6 + 32 + 16)
+**Minimum size:** 56 bytes (8 + 32 + 16)
 
 ---
 
@@ -128,11 +128,11 @@ All post-handshake frames use XChaCha20-Poly1305 AEAD.
 ### Nonce Construction (24 bytes)
 
 ```mermaid
-packet-beta
-  0-31: "Epoch (4 bytes, LE32)"
-  32-39: "Direction (1 byte)"
-  40-127: "Zeros (11 bytes)"
-  128-191: "Counter (8 bytes, LE64)"
+packet
+  +32: "Epoch (4 bytes)"
+  +8: "Direction"
+  +88: "Zeros (11 bytes)"
+  +64: "Counter (8 bytes)"
 ```
 
 | Field | Value |
@@ -169,14 +169,14 @@ Sessions MUST rekey periodically for forward secrecy.
 Encrypted with current session keys:
 
 ```mermaid
-packet-beta
-  0-7: "Type (0x04)"
-  8-15: "Flags"
-  16-63: "Session ID"
-  64-127: "Nonce Counter"
-  128-383: "New Ephemeral Public Key (32 bytes, encrypted)"
-  384-415: "Timestamp (4 bytes, encrypted)"
-  416-543: "AEAD Tag (16 bytes)"
+packet
+  +8: "Type 0x04"
+  +8: "Flags"
+  +48: "Session ID"
+  +64: "Nonce Counter"
+  +256: "New Ephemeral (32 bytes, enc)"
+  +32: "Timestamp (4 bytes, enc)"
+  +128: "AEAD Tag (16 bytes)"
 ```
 
 ### Rekey Procedure

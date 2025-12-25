@@ -35,35 +35,20 @@ NOMAD is inspired by [Mosh](https://mosh.org/) (Mobile Shell) and its State Sync
 
 ## Protocol Layers
 
-```mermaid
-block-beta
-  columns 1
-
-  block:ext["EXTENSIONS"]
-    extdesc["compression (zstd) • scrollback • prediction"]
-  end
-
-  block:state["STATE LAYER"]
-    statedesc["Application-defined: impl SyncState for YourType"]
-  end
-
-  block:sync["SYNC LAYER"]
-    syncdesc["versioning • idempotent diffs • convergence • ack tracking"]
-  end
-
-  block:transport["TRANSPORT LAYER"]
-    transportdesc["frames • session ID • nonce counter • keepalive • roaming"]
-  end
-
-  block:security["SECURITY LAYER"]
-    secdesc["Noise_IK • XChaCha20-Poly1305 • BLAKE2s • rekeying"]
-  end
-
-  block:udp["UDP"]
-    udpdesc["unreliable datagrams"]
-  end
-
-  ext --> state --> sync --> transport --> security --> udp
+```
+┌─────────────────────────────────────────────────────────────┐
+│  EXTENSIONS     compression (zstd) • scrollback • prediction │
+├─────────────────────────────────────────────────────────────┤
+│  STATE LAYER    Application-defined: impl SyncState          │
+├─────────────────────────────────────────────────────────────┤
+│  SYNC LAYER     versioning • idempotent diffs • convergence  │
+├─────────────────────────────────────────────────────────────┤
+│  TRANSPORT      frames • session ID • nonce • keepalive      │
+├─────────────────────────────────────────────────────────────┤
+│  SECURITY       Noise_IK • XChaCha20-Poly1305 • BLAKE2s      │
+├─────────────────────────────────────────────────────────────┤
+│  UDP            unreliable datagrams                         │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 | Layer | Specification | Responsibility |
