@@ -33,6 +33,16 @@ Thumbs.db
 capture/
 *.pcap
 
+# Environment files (secrets)
+.env
+.env.*
+!.env.example
+docker/.env
+
+# External implementations (separate repos)
+docker/rs-impl/
+docker/go-impl/
+
 # Octopus dev
 .worktrees/
 .octopus/log.md
@@ -45,6 +55,3 @@ build/
 # Temp
 *.tmp
 *.bak
-
-# Octopus tentacle worktrees
-.worktrees/
