@@ -112,6 +112,7 @@ class SyncPeer:
             # For bytes state (from test vectors), just store the length
             if len(msg.diff) == 8:
                 import struct
+
                 self.peer_state = struct.unpack("<Q", msg.diff)[0]
             else:
                 # For test vectors with text diffs, use the length as a proxy
@@ -123,10 +124,7 @@ class SyncPeer:
 
     def is_converged_with(self, other: SyncPeer) -> bool:
         """Check if this peer has converged with another."""
-        return (
-            self.peer_state == other.state
-            and self.peer_state_num == other.state_num
-        )
+        return self.peer_state == other.state and self.peer_state_num == other.state_num
 
 
 # =============================================================================
@@ -238,8 +236,7 @@ class TestBasicConvergence:
     def test_convergence_scenario_from_vectors(self, sync_vectors: dict) -> None:
         """Test convergence using test vector scenario."""
         scenario = next(
-            s for s in sync_vectors["convergence_scenarios"]
-            if s["name"] == "normal_convergence"
+            s for s in sync_vectors["convergence_scenarios"] if s["name"] == "normal_convergence"
         )
 
         a = SyncPeer(name="A")
@@ -306,8 +303,7 @@ class TestPacketLossRecovery:
     def test_packet_loss_recovery_scenario(self, sync_vectors: dict) -> None:
         """Test packet loss recovery scenario from vectors."""
         scenario = next(
-            s for s in sync_vectors["convergence_scenarios"]
-            if s["name"] == "packet_loss_recovery"
+            s for s in sync_vectors["convergence_scenarios"] if s["name"] == "packet_loss_recovery"
         )
 
         a = SyncPeer(name="A")

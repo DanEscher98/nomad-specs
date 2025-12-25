@@ -45,9 +45,7 @@ class TestSyncMessageDecoding:
 
     def test_initial_state_decoding(self, sync_vectors: dict) -> None:
         """Test decoding of initial state message."""
-        vector = next(
-            v for v in sync_vectors["sync_messages"] if v["name"] == "initial_state"
-        )
+        vector = next(v for v in sync_vectors["sync_messages"] if v["name"] == "initial_state")
 
         encoded = bytes.fromhex(vector["encoded"])
         msg = parse_sync_message(encoded)
@@ -59,9 +57,7 @@ class TestSyncMessageDecoding:
 
     def test_normal_sync_decoding(self, sync_vectors: dict) -> None:
         """Test decoding of normal sync message with ack and diff."""
-        vector = next(
-            v for v in sync_vectors["sync_messages"] if v["name"] == "normal_sync"
-        )
+        vector = next(v for v in sync_vectors["sync_messages"] if v["name"] == "normal_sync")
 
         encoded = bytes.fromhex(vector["encoded"])
         msg = parse_sync_message(encoded)
@@ -73,9 +69,7 @@ class TestSyncMessageDecoding:
 
     def test_ack_only_decoding(self, sync_vectors: dict) -> None:
         """Test decoding of ack-only message (empty diff)."""
-        vector = next(
-            v for v in sync_vectors["sync_messages"] if v["name"] == "ack_only"
-        )
+        vector = next(v for v in sync_vectors["sync_messages"] if v["name"] == "ack_only")
 
         encoded = bytes.fromhex(vector["encoded"])
         msg = parse_sync_message(encoded)
@@ -100,9 +94,7 @@ class TestSyncMessageDecoding:
 
     def test_binary_diff_decoding(self, sync_vectors: dict) -> None:
         """Test decoding with binary (non-ASCII) diff payload."""
-        vector = next(
-            v for v in sync_vectors["sync_messages"] if v["name"] == "binary_diff"
-        )
+        vector = next(v for v in sync_vectors["sync_messages"] if v["name"] == "binary_diff")
 
         encoded = bytes.fromhex(vector["encoded"])
         msg = parse_sync_message(encoded)
@@ -278,8 +270,7 @@ class TestConvergenceScenarioDecoding:
     def test_normal_convergence_messages(self, sync_vectors: dict) -> None:
         """Test decoding of messages in normal convergence scenario."""
         scenario = next(
-            s for s in sync_vectors["convergence_scenarios"]
-            if s["name"] == "normal_convergence"
+            s for s in sync_vectors["convergence_scenarios"] if s["name"] == "normal_convergence"
         )
 
         for msg_data in scenario["messages"]:
@@ -294,8 +285,7 @@ class TestConvergenceScenarioDecoding:
     def test_packet_loss_recovery_messages(self, sync_vectors: dict) -> None:
         """Test decoding of messages in packet loss recovery scenario."""
         scenario = next(
-            s for s in sync_vectors["convergence_scenarios"]
-            if s["name"] == "packet_loss_recovery"
+            s for s in sync_vectors["convergence_scenarios"] if s["name"] == "packet_loss_recovery"
         )
 
         for msg_data in scenario["messages"]:
@@ -363,9 +353,7 @@ class TestDiffPayloadTypes:
 
     def test_ascii_diff(self, sync_vectors: dict) -> None:
         """Test decoding ASCII diff from vector with ascii field."""
-        vector = next(
-            v for v in sync_vectors["sync_messages"] if v["name"] == "initial_state"
-        )
+        vector = next(v for v in sync_vectors["sync_messages"] if v["name"] == "initial_state")
 
         encoded = bytes.fromhex(vector["encoded"])
         msg = parse_sync_message(encoded)
@@ -375,9 +363,7 @@ class TestDiffPayloadTypes:
 
     def test_binary_only_diff(self, sync_vectors: dict) -> None:
         """Test decoding binary diff that has no ASCII representation."""
-        vector = next(
-            v for v in sync_vectors["sync_messages"] if v["name"] == "binary_diff"
-        )
+        vector = next(v for v in sync_vectors["sync_messages"] if v["name"] == "binary_diff")
 
         encoded = bytes.fromhex(vector["encoded"])
         msg = parse_sync_message(encoded)

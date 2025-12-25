@@ -44,9 +44,7 @@ class TestSyncMessageEncoding:
 
     def test_initial_state_encoding(self, sync_vectors: dict) -> None:
         """Test encoding of initial state message (first sync from initiator)."""
-        vector = next(
-            v for v in sync_vectors["sync_messages"] if v["name"] == "initial_state"
-        )
+        vector = next(v for v in sync_vectors["sync_messages"] if v["name"] == "initial_state")
 
         diff = bytes.fromhex(vector["diff"]["hex"])
         result = encode_sync_message(
@@ -62,9 +60,7 @@ class TestSyncMessageEncoding:
 
     def test_normal_sync_encoding(self, sync_vectors: dict) -> None:
         """Test encoding of normal sync message with ack and diff."""
-        vector = next(
-            v for v in sync_vectors["sync_messages"] if v["name"] == "normal_sync"
-        )
+        vector = next(v for v in sync_vectors["sync_messages"] if v["name"] == "normal_sync")
 
         diff = bytes.fromhex(vector["diff"]["hex"])
         result = encode_sync_message(
@@ -79,9 +75,7 @@ class TestSyncMessageEncoding:
 
     def test_ack_only_encoding(self, sync_vectors: dict) -> None:
         """Test encoding of ack-only message (no state change)."""
-        vector = next(
-            v for v in sync_vectors["sync_messages"] if v["name"] == "ack_only"
-        )
+        vector = next(v for v in sync_vectors["sync_messages"] if v["name"] == "ack_only")
 
         result = encode_sync_message(
             sender_state_num=vector["sender_state_num"],
@@ -115,9 +109,7 @@ class TestSyncMessageEncoding:
 
     def test_binary_diff_encoding(self, sync_vectors: dict) -> None:
         """Test encoding with binary (non-ASCII) diff payload."""
-        vector = next(
-            v for v in sync_vectors["sync_messages"] if v["name"] == "binary_diff"
-        )
+        vector = next(v for v in sync_vectors["sync_messages"] if v["name"] == "binary_diff")
 
         diff = bytes.fromhex(vector["diff"]["hex"])
         result = encode_sync_message(
@@ -132,9 +124,7 @@ class TestSyncMessageEncoding:
 
     def test_empty_initial_encoding(self, sync_vectors: dict) -> None:
         """Test encoding of empty initial state."""
-        vector = next(
-            v for v in sync_vectors["sync_messages"] if v["name"] == "empty_initial"
-        )
+        vector = next(v for v in sync_vectors["sync_messages"] if v["name"] == "empty_initial")
 
         result = encode_sync_message(
             sender_state_num=vector["sender_state_num"],
@@ -261,8 +251,7 @@ class TestConvergenceScenarioEncoding:
     def test_normal_convergence_messages(self, sync_vectors: dict) -> None:
         """Test encoding of messages in normal convergence scenario."""
         scenario = next(
-            s for s in sync_vectors["convergence_scenarios"]
-            if s["name"] == "normal_convergence"
+            s for s in sync_vectors["convergence_scenarios"] if s["name"] == "normal_convergence"
         )
 
         for msg in scenario["messages"]:
@@ -280,8 +269,7 @@ class TestConvergenceScenarioEncoding:
     def test_packet_loss_recovery_messages(self, sync_vectors: dict) -> None:
         """Test encoding of messages in packet loss recovery scenario."""
         scenario = next(
-            s for s in sync_vectors["convergence_scenarios"]
-            if s["name"] == "packet_loss_recovery"
+            s for s in sync_vectors["convergence_scenarios"] if s["name"] == "packet_loss_recovery"
         )
 
         for msg in scenario["messages"]:

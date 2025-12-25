@@ -45,6 +45,44 @@
   - [x] Commutativity where applicable
   - [x] Convergence under random packet loss
 
+---
+
+## Phase 2: E2E Tests (DOCKER REQUIRED)
+
+**Status:** NOT STARTED
+
+> Phase 1 tests validate the Python reference codec and simulated sync logic.
+> Phase 2 tests validate real implementations in Docker containers.
+
+**Prerequisites:**
+- Use fixtures from `tests/conftest.py`: `server_container`, `client_container`, `packet_capture`
+- Container management via `tests/lib/containers.py` (ContainerManager)
+- Test keypairs configured in `tests/lib/containers.py`
+- Use `container_manager.check_container_health()` to detect crashes
+- Mark tests with `@pytest.mark.container`
+
+### E2E Protocol Tests
+- [ ] Refactor `test_sync_flow.py` for E2E
+  - [ ] Test state sync with real server+client containers
+  - [ ] Send state updates from client, verify server receives
+  - [ ] Verify version number progression on wire
+- [ ] Refactor `test_sync_convergence.py` for E2E
+  - [ ] Test convergence with real packet loss (tc netem)
+  - [ ] Verify idempotent diff application after retransmits
+  - [ ] Measure convergence time under various loss rates
+
+### Wire Tests (NEW)
+- [ ] Add `test_sync_wire.py` - Byte-level sync validation
+  - [ ] Capture sync messages on wire
+  - [ ] Validate byte format (sender_num, acked_num, base_num, diff)
+  - [ ] Verify little-endian encoding of all fields
+
+### Resilience Tests
+- [ ] Add `test_sync_resilience.py` - Network chaos with real containers
+  - [ ] Test sync under 10%, 30%, 50% packet loss
+  - [ ] Test sync with high latency (500ms)
+  - [ ] Test sync with packet reordering
+
 ## Dependencies
 - [x] `tests/lib/reference.py` from t6-vectors
 - [x] `tests/vectors/sync_vectors.json5` from t6-vectors

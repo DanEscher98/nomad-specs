@@ -474,8 +474,7 @@ class TestWireFormatIntegration:
     def test_normal_convergence_scenario(self, sync_vectors: dict) -> None:
         """Test normal convergence scenario from test vectors."""
         scenario = next(
-            s for s in sync_vectors["convergence_scenarios"]
-            if s["name"] == "normal_convergence"
+            s for s in sync_vectors["convergence_scenarios"] if s["name"] == "normal_convergence"
         )
 
         a = SyncTracker()

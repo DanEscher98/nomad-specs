@@ -127,10 +127,7 @@ class TestEmptyState:
 
     def test_empty_initial_from_vector(self, sync_vectors: dict) -> None:
         """Test empty initial state from test vector."""
-        vector = next(
-            v for v in sync_vectors["sync_messages"]
-            if v["name"] == "empty_initial"
-        )
+        vector = next(v for v in sync_vectors["sync_messages"] if v["name"] == "empty_initial")
 
         encoded = bytes.fromhex(vector["encoded"])
         msg = parse_sync_message(encoded)
@@ -267,8 +264,7 @@ class TestMaxVersionNumbers:
     def test_large_version_from_vector(self, sync_vectors: dict) -> None:
         """Test large version numbers from test vector."""
         vector = next(
-            v for v in sync_vectors["sync_messages"]
-            if v["name"] == "large_version_numbers"
+            v for v in sync_vectors["sync_messages"] if v["name"] == "large_version_numbers"
         )
 
         encoded = bytes.fromhex(vector["encoded"])
@@ -327,10 +323,7 @@ class TestAckOnlyMessages:
 
     def test_ack_only_from_vector(self, sync_vectors: dict) -> None:
         """Test ack-only message from test vector."""
-        vector = next(
-            v for v in sync_vectors["sync_messages"]
-            if v["name"] == "ack_only"
-        )
+        vector = next(v for v in sync_vectors["sync_messages"] if v["name"] == "ack_only")
 
         encoded = bytes.fromhex(vector["encoded"])
         msg = parse_sync_message(encoded)
@@ -394,8 +387,7 @@ class TestRetransmissionEdgeCases:
     def test_retransmit_with_updated_ack(self, sync_vectors: dict) -> None:
         """Test retransmit scenario from test vector."""
         vector = next(
-            v for v in sync_vectors["sync_messages"]
-            if v["name"] == "retransmit_scenario"
+            v for v in sync_vectors["sync_messages"] if v["name"] == "retransmit_scenario"
         )
 
         msg = parse_sync_message(bytes.fromhex(vector["encoded"]))
@@ -436,10 +428,7 @@ class TestBinaryDiffEdgeCases:
 
     def test_binary_diff_from_vector(self, sync_vectors: dict) -> None:
         """Test binary diff from test vector."""
-        vector = next(
-            v for v in sync_vectors["sync_messages"]
-            if v["name"] == "binary_diff"
-        )
+        vector = next(v for v in sync_vectors["sync_messages"] if v["name"] == "binary_diff")
 
         msg = parse_sync_message(bytes.fromhex(vector["encoded"]))
 

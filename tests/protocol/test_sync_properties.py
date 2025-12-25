@@ -151,9 +151,7 @@ class TestEncodingRoundtrip:
         base=version_numbers,
     )
     @settings(max_examples=100)
-    def test_empty_diff_roundtrip(
-        self, sender: int, acked: int, base: int
-    ) -> None:
+    def test_empty_diff_roundtrip(self, sender: int, acked: int, base: int) -> None:
         """Test roundtrip with empty diff."""
         encoded = encode_sync_message(sender, acked, base, b"")
         decoded = parse_sync_message(encoded)
@@ -316,9 +314,7 @@ class TestSyncFlowProperties:
         )
     )
     @settings(max_examples=50)
-    def test_out_of_order_converges(
-        self, versions: list[tuple[int, bytes]]
-    ) -> None:
+    def test_out_of_order_converges(self, versions: list[tuple[int, bytes]]) -> None:
         """Test that out-of-order delivery converges to max version."""
         import random
 
@@ -432,9 +428,7 @@ class TestAckProperties:
         ack_values=st.lists(small_versions, min_size=1, max_size=5),
     )
     @settings(max_examples=30)
-    def test_ack_independent_of_state(
-        self, n: int, ack_values: list[int]
-    ) -> None:
+    def test_ack_independent_of_state(self, n: int, ack_values: list[int]) -> None:
         """Test that ack tracking is independent of state updates.
 
         Ack field is always processed regardless of sender_state_num.
@@ -464,9 +458,7 @@ class TestInvariantProperties:
         diff=diff_payloads,
     )
     @settings(max_examples=100)
-    def test_encoded_never_empty(
-        self, sender: int, acked: int, base: int, diff: bytes
-    ) -> None:
+    def test_encoded_never_empty(self, sender: int, acked: int, base: int, diff: bytes) -> None:
         """Test that encoded message is never empty."""
         encoded = encode_sync_message(sender, acked, base, diff)
         assert len(encoded) >= SYNC_MESSAGE_HEADER_SIZE
