@@ -49,7 +49,7 @@
 
 ## Phase 2: E2E Tests (DOCKER REQUIRED)
 
-**Status:** IN PROGRESS
+**Status:** COMPLETE
 
 > Phase 1 tests validate the Python reference codec and simulated sync logic.
 > Phase 2 tests validate real implementations in Docker containers.
@@ -87,15 +87,18 @@
   - [x] Convergence timing measurement - TestConvergenceTiming
   - [x] Stress tests (extended loss, chaos cycling) - TestNetworkStress
 
-### E2E Protocol Tests (PENDING)
-- [ ] Refactor `test_sync_flow.py` for E2E
-  - [ ] Test state sync with real server+client containers
-  - [ ] Send state updates from client, verify server receives
-  - [ ] Verify version number progression on wire
-- [ ] Refactor `test_sync_convergence.py` for E2E
-  - [ ] Test convergence with real packet loss (tc netem)
-  - [ ] Verify idempotent diff application after retransmits
-  - [ ] Measure convergence time under various loss rates
+### E2E Protocol Tests
+- [x] Refactor `test_sync_flow.py` for E2E (7 tests)
+  - [x] TestE2ESyncFlow: container sync exchange, version progression, session ID stability
+  - [x] TestE2EAckCycle: bidirectional traffic, container health
+  - [x] TestE2ESenderReceiver: frame structure validation, port verification
+- [x] Refactor `test_sync_convergence.py` for E2E (10 tests)
+  - [x] TestE2EBasicConvergence: container exchange, health, nonce progression
+  - [x] TestE2EConvergenceWithLoss: moderate (20%) and high (50%) packet loss
+  - [x] TestE2EConvergenceWithReordering: packet reordering tolerance
+  - [x] TestE2EConvergenceWithDuplicates: idempotent duplicate handling
+  - [x] TestE2EEventualConsistency: partition recovery, delay spike recovery
+  - [x] TestE2EStateSkipping: nonce gaps under packet loss
 
 ## Dependencies
 - [x] `tests/lib/reference.py` from t6-vectors

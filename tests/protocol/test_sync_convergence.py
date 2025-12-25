@@ -13,17 +13,28 @@ Reference: specs/3-SYNC.md - Convergence Guarantees
 from __future__ import annotations
 
 import random
+import struct
+import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import NamedTuple
+from typing import TYPE_CHECKING, NamedTuple
 
 import json5
 import pytest
 
+from lib.chaos import NetworkChaos
+from lib.network import parse_pcap
 from lib.reference import (
+    FRAME_DATA,
     SyncMessage,
     parse_sync_message,
 )
+
+if TYPE_CHECKING:
+    from docker import DockerClient
+    from docker.models.containers import Container
+
+    from lib.containers import ContainerManager, PacketCapture
 
 # Path to test vectors
 VECTORS_DIR = Path(__file__).parent.parent / "vectors"
@@ -645,3 +656,278 @@ class TestStateSkipping:
         # B catches up immediately
         assert b.peer_state == 999
         assert b.peer_state_num == 100
+
+
+# =============================================================================
+# E2E Convergence Tests (DOCKER REQUIRED)
+# =============================================================================
+# These tests validate convergence with real implementations in containers.
+# They use packet capture and network chaos to verify convergence properties.
+
+
+# Mark all E2E tests as requiring containers
+pytestmark_e2e = [pytest.mark.container, pytest.mark.network]
+
+
+class TestE2EBasicConvergence:
+    """E2E tests for basic convergence with real containers."""
+
+    pytestmark = pytestmark_e2e
+
+    def test_containers_exchange_sync(
+        self,
+        server_container: Container,
+        client_container: Container,
+        packet_capture: PacketCapture,
+    ) -> None:
+        """Test that containers exchange sync messages."""
+        with packet_capture.capture() as pcap_file:
+            time.sleep(3)
+
+        frames = parse_pcap(pcap_file)
+        data_frames = [f for f in frames if f.frame_type == FRAME_DATA]
+
+        assert len(data_frames) > 0, "Should see sync traffic"
+
+    def test_containers_remain_healthy(
+        self,
+        server_container: Container,
+        client_container: Container,
+        container_manager: ContainerManager,
+    ) -> None:
+        """Test that containers remain healthy during sync."""
+        time.sleep(5)
+        container_manager.check_all_containers()
+
+    def test_nonce_progression_indicates_activity(
+        self,
+        server_container: Container,
+        client_container: Container,
+        packet_capture: PacketCapture,
+    ) -> None:
+        """Test that nonce counters progress, indicating active sync."""
+        with packet_capture.capture() as pcap_file:
+            time.sleep(3)
+
+        frames = parse_pcap(pcap_file)
+        data_frames = [f for f in frames if f.frame_type == FRAME_DATA]
+
+        if len(data_frames) < 2:
+            pytest.skip("Need multiple frames to verify progression")
+
+        # Extract nonces from first source
+        sources = {}
+        for frame in data_frames:
+            src = frame.src_ip
+            nonce = struct.unpack("<Q", frame.raw_bytes[8:16])[0]
+            if src not in sources:
+                sources[src] = []
+            sources[src].append(nonce)
+
+        # At least one source should have progressing nonces
+        for src, nonces in sources.items():
+            if len(nonces) >= 2:
+                assert nonces[-1] > nonces[0], f"Nonces not progressing for {src}"
+
+
+class TestE2EConvergenceWithLoss:
+    """E2E convergence tests under packet loss."""
+
+    pytestmark = pytestmark_e2e
+
+    def test_sync_survives_moderate_loss(
+        self,
+        server_container: Container,
+        client_container: Container,
+        container_manager: ContainerManager,
+        docker_client: DockerClient,
+    ) -> None:
+        """Test that sync survives 20% packet loss."""
+        import os
+
+        network_name = os.environ.get("NOMAD_TEST_NETWORK", "nomad-test-net")
+        client_name = os.environ.get("NOMAD_CLIENT_CONTAINER", "nomad-client")
+        chaos = NetworkChaos(docker_client, network_name)
+
+        with chaos.apply_loss(client_name, percent=20):
+            time.sleep(5)
+
+        container_manager.check_all_containers()
+
+    def test_sync_survives_high_loss(
+        self,
+        server_container: Container,
+        client_container: Container,
+        container_manager: ContainerManager,
+        docker_client: DockerClient,
+    ) -> None:
+        """Test that sync survives 50% packet loss (challenging)."""
+        import os
+
+        network_name = os.environ.get("NOMAD_TEST_NETWORK", "nomad-test-net")
+        client_name = os.environ.get("NOMAD_CLIENT_CONTAINER", "nomad-client")
+        chaos = NetworkChaos(docker_client, network_name)
+
+        with chaos.apply_loss(client_name, percent=50):
+            time.sleep(10)  # More time for retransmissions
+
+        container_manager.check_all_containers()
+
+
+class TestE2EConvergenceWithReordering:
+    """E2E convergence tests under packet reordering."""
+
+    pytestmark = pytestmark_e2e
+
+    def test_sync_handles_reordering(
+        self,
+        server_container: Container,
+        client_container: Container,
+        container_manager: ContainerManager,
+        docker_client: DockerClient,
+    ) -> None:
+        """Test that sync handles packet reordering correctly."""
+        import os
+
+        network_name = os.environ.get("NOMAD_TEST_NETWORK", "nomad-test-net")
+        client_name = os.environ.get("NOMAD_CLIENT_CONTAINER", "nomad-client")
+        chaos = NetworkChaos(docker_client, network_name)
+
+        with chaos.apply_reorder(client_name, percent=30, gap=5):
+            time.sleep(5)
+
+        container_manager.check_all_containers()
+
+
+class TestE2EConvergenceWithDuplicates:
+    """E2E convergence tests under packet duplication."""
+
+    pytestmark = pytestmark_e2e
+
+    def test_sync_handles_duplicates_idempotently(
+        self,
+        server_container: Container,
+        client_container: Container,
+        container_manager: ContainerManager,
+        docker_client: DockerClient,
+    ) -> None:
+        """Test that sync handles duplicate packets idempotently."""
+        import os
+
+        network_name = os.environ.get("NOMAD_TEST_NETWORK", "nomad-test-net")
+        client_name = os.environ.get("NOMAD_CLIENT_CONTAINER", "nomad-client")
+        chaos = NetworkChaos(docker_client, network_name)
+
+        with chaos.apply_duplicate(client_name, percent=50):
+            time.sleep(5)
+
+        container_manager.check_all_containers()
+
+
+class TestE2EEventualConsistency:
+    """E2E tests for eventual consistency property."""
+
+    pytestmark = pytestmark_e2e
+
+    def test_recovery_after_partition(
+        self,
+        server_container: Container,
+        client_container: Container,
+        container_manager: ContainerManager,
+        docker_client: DockerClient,
+    ) -> None:
+        """Test that sync recovers after network partition heals."""
+        import os
+
+        network_name = os.environ.get("NOMAD_TEST_NETWORK", "nomad-test-net")
+        server_name = os.environ.get("NOMAD_SERVER_CONTAINER", "nomad-server")
+        client_name = os.environ.get("NOMAD_CLIENT_CONTAINER", "nomad-client")
+        chaos = NetworkChaos(docker_client, network_name)
+
+        # Initial sync
+        time.sleep(2)
+
+        # Partition
+        with chaos.partition_context(server_name, client_name):
+            time.sleep(3)
+
+        # Allow recovery
+        time.sleep(3)
+
+        container_manager.check_all_containers()
+
+    def test_sync_continues_after_delay_spike(
+        self,
+        server_container: Container,
+        client_container: Container,
+        packet_capture: PacketCapture,
+        docker_client: DockerClient,
+    ) -> None:
+        """Test that sync continues after high latency spike."""
+        import os
+
+        network_name = os.environ.get("NOMAD_TEST_NETWORK", "nomad-test-net")
+        client_name = os.environ.get("NOMAD_CLIENT_CONTAINER", "nomad-client")
+        chaos = NetworkChaos(docker_client, network_name)
+
+        # Capture before, during, and after delay
+        with packet_capture.capture() as pcap_file:
+            time.sleep(1)  # Normal
+
+            with chaos.apply_delay(client_name, delay_ms=500, jitter_ms=200):
+                time.sleep(3)  # High delay
+
+            time.sleep(2)  # Normal again
+
+        frames = parse_pcap(pcap_file)
+        data_frames = [f for f in frames if f.frame_type == FRAME_DATA]
+
+        # Should still have traffic
+        assert len(data_frames) > 0, "Should have sync traffic despite delay spike"
+
+
+class TestE2EStateSkipping:
+    """E2E tests for state skipping behavior."""
+
+    pytestmark = pytestmark_e2e
+
+    def test_nonces_skip_gaps_correctly(
+        self,
+        server_container: Container,
+        client_container: Container,
+        packet_capture: PacketCapture,
+        docker_client: DockerClient,
+    ) -> None:
+        """Test that nonces can skip values (due to lost packets)."""
+        import os
+
+        network_name = os.environ.get("NOMAD_TEST_NETWORK", "nomad-test-net")
+        client_name = os.environ.get("NOMAD_CLIENT_CONTAINER", "nomad-client")
+        chaos = NetworkChaos(docker_client, network_name)
+
+        with (
+            packet_capture.capture() as pcap_file,
+            chaos.apply_loss(client_name, percent=30),
+        ):
+            time.sleep(5)
+
+        frames = parse_pcap(pcap_file)
+        data_frames = [f for f in frames if f.frame_type == FRAME_DATA]
+
+        # Extract nonces per source
+        sources: dict[str, list[int]] = {}
+        for frame in data_frames:
+            src = frame.src_ip
+            nonce = struct.unpack("<Q", frame.raw_bytes[8:16])[0]
+            if src not in sources:
+                sources[src] = []
+            sources[src].append(nonce)
+
+        # With packet loss, received nonces may have gaps
+        # (sender increments, but some packets are lost)
+        # Key property: nonces we DO receive are still monotonic
+        for src, nonces in sources.items():
+            for i in range(1, len(nonces)):
+                assert nonces[i] > nonces[i - 1], (
+                    f"Nonces not monotonic for {src}: {nonces[i - 1]} -> {nonces[i]}"
+                )

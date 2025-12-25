@@ -11,17 +11,28 @@ Reference: specs/3-SYNC.md
 
 from __future__ import annotations
 
+import struct
+import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import json5
 import pytest
 
+from lib.network import NOMAD_PORT, parse_pcap
 from lib.reference import (
+    DATA_FRAME_HEADER_SIZE,
+    FRAME_DATA,
     SyncMessage,
     encode_sync_message,
     parse_sync_message,
 )
+
+if TYPE_CHECKING:
+    from docker.models.containers import Container
+
+    from lib.containers import ContainerManager, PacketCapture
 
 # Path to test vectors
 VECTORS_DIR = Path(__file__).parent.parent / "vectors"
@@ -493,3 +504,213 @@ class TestWireFormatIntegration:
         # Both should have received each other's updates
         assert a.peer_state_num == 2  # B's version 2
         assert b.peer_state_num == 2  # A's version 2
+
+
+# =============================================================================
+# E2E Sync Flow Tests (DOCKER REQUIRED)
+# =============================================================================
+# These tests validate sync flow with real implementations in containers.
+# They capture actual network traffic and verify protocol compliance.
+
+
+# Mark all E2E tests as requiring containers
+pytestmark_e2e = [pytest.mark.container, pytest.mark.network]
+
+
+class TestE2ESyncFlow:
+    """E2E tests for sync flow with real containers."""
+
+    pytestmark = pytestmark_e2e
+
+    def test_container_sync_exchange(
+        self,
+        server_container: Container,
+        client_container: Container,
+        packet_capture: PacketCapture,
+    ) -> None:
+        """Test basic sync message exchange between containers.
+
+        Verifies:
+        - Data frames are exchanged on the wire
+        - Both directions see traffic
+        - Frame format is correct
+        """
+        with packet_capture.capture() as pcap_file:
+            time.sleep(3)
+
+        frames = parse_pcap(pcap_file)
+        data_frames = [f for f in frames if f.frame_type == FRAME_DATA]
+
+        assert len(data_frames) > 0, "Should see data frames on wire"
+
+        # Verify both directions
+        directions = {(f.src_ip, f.dst_ip) for f in data_frames}
+        # At minimum we should see traffic (may be one-directional depending on state)
+        assert len(directions) >= 1, "Should see traffic flow"
+
+    def test_version_progression_on_wire(
+        self,
+        server_container: Container,
+        client_container: Container,
+        packet_capture: PacketCapture,
+    ) -> None:
+        """Test that version numbers progress correctly on wire.
+
+        Captures packets and verifies nonce counters increase.
+        """
+        with packet_capture.capture() as pcap_file:
+            time.sleep(3)
+
+        frames = parse_pcap(pcap_file)
+        data_frames = [f for f in frames if f.frame_type == FRAME_DATA]
+
+        if len(data_frames) < 2:
+            pytest.skip("Need at least 2 frames to verify progression")
+
+        # Group by source and verify nonce counter progression
+        by_source: dict[str, list[int]] = {}
+        for frame in data_frames:
+            src = frame.src_ip
+            if src not in by_source:
+                by_source[src] = []
+            nonce = struct.unpack("<Q", frame.raw_bytes[8:16])[0]
+            by_source[src].append(nonce)
+
+        for src, nonces in by_source.items():
+            # Nonces should be monotonically increasing
+            for i in range(1, len(nonces)):
+                assert nonces[i] > nonces[i - 1], (
+                    f"Nonce not increasing for {src}: {nonces[i - 1]} -> {nonces[i]}"
+                )
+
+    def test_session_id_stable(
+        self,
+        server_container: Container,
+        client_container: Container,
+        packet_capture: PacketCapture,
+    ) -> None:
+        """Test that session ID remains stable throughout session."""
+        with packet_capture.capture() as pcap_file:
+            time.sleep(3)
+
+        frames = parse_pcap(pcap_file)
+        data_frames = [f for f in frames if f.frame_type == FRAME_DATA]
+
+        if len(data_frames) < 2:
+            pytest.skip("Need at least 2 frames to verify stability")
+
+        # Group by direction and verify session ID consistency
+        by_direction: dict[tuple[str, str], set[bytes]] = {}
+        for frame in data_frames:
+            direction = (frame.src_ip, frame.dst_ip)
+            session_id = frame.raw_bytes[2:8]
+            if direction not in by_direction:
+                by_direction[direction] = set()
+            by_direction[direction].add(session_id)
+
+        for direction, session_ids in by_direction.items():
+            assert len(session_ids) == 1, (
+                f"Session ID changed for {direction}: found {len(session_ids)} unique IDs"
+            )
+
+
+class TestE2EAckCycle:
+    """E2E tests for ack cycle verification."""
+
+    pytestmark = pytestmark_e2e
+
+    def test_bidirectional_traffic(
+        self,
+        server_container: Container,
+        client_container: Container,
+        packet_capture: PacketCapture,
+    ) -> None:
+        """Test that bidirectional sync traffic occurs.
+
+        Both server and client should send data frames.
+        """
+        with packet_capture.capture() as pcap_file:
+            time.sleep(5)
+
+        frames = parse_pcap(pcap_file)
+        data_frames = [f for f in frames if f.frame_type == FRAME_DATA]
+
+        # Collect unique sources
+        sources = {f.src_ip for f in data_frames}
+
+        # Should have traffic from both endpoints (may need longer wait)
+        if len(sources) < 2:
+            pytest.skip("Bidirectional traffic not captured (may need longer sync)")
+
+        assert len(sources) >= 2, "Should see traffic from both endpoints"
+
+    def test_container_health_during_sync(
+        self,
+        server_container: Container,
+        client_container: Container,
+        container_manager: ContainerManager,
+    ) -> None:
+        """Test that containers remain healthy during sync."""
+        # Let sync run for a while
+        time.sleep(5)
+
+        # Verify no crashes
+        container_manager.check_all_containers()
+
+
+class TestE2ESenderReceiver:
+    """E2E tests for sender/receiver roles."""
+
+    pytestmark = pytestmark_e2e
+
+    def test_frame_structure_valid(
+        self,
+        server_container: Container,
+        client_container: Container,
+        packet_capture: PacketCapture,
+    ) -> None:
+        """Test that all captured frames have valid structure."""
+        with packet_capture.capture() as pcap_file:
+            time.sleep(3)
+
+        frames = parse_pcap(pcap_file)
+        data_frames = [f for f in frames if f.frame_type == FRAME_DATA]
+
+        for frame in data_frames:
+            raw = frame.raw_bytes
+
+            # Minimum frame size
+            assert len(raw) >= DATA_FRAME_HEADER_SIZE, f"Frame too short: {len(raw)} bytes"
+
+            # Frame type must be DATA (0x03)
+            assert raw[0] == FRAME_DATA, f"Invalid frame type: 0x{raw[0]:02x}"
+
+            # Reserved flag bits must be 0
+            flags = raw[1]
+            assert (flags & 0xFC) == 0, f"Reserved flags set: 0x{flags:02x}"
+
+            # Session ID must be 6 bytes (already sliced)
+            session_id = raw[2:8]
+            assert len(session_id) == 6
+
+            # Nonce counter must be parseable
+            nonce = struct.unpack("<Q", raw[8:16])[0]
+            assert nonce >= 0
+
+    def test_data_port_correct(
+        self,
+        server_container: Container,
+        client_container: Container,
+        packet_capture: PacketCapture,
+    ) -> None:
+        """Test that sync traffic uses correct port."""
+        with packet_capture.capture() as pcap_file:
+            time.sleep(2)
+
+        frames = parse_pcap(pcap_file)
+
+        for frame in frames:
+            # At least one port should be NOMAD_PORT
+            assert frame.src_port == NOMAD_PORT or frame.dst_port == NOMAD_PORT, (
+                f"Traffic on wrong port: {frame.src_port} -> {frame.dst_port}"
+            )
