@@ -19,11 +19,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import structlog
-from scapy.all import UDP, IP, Ether, Raw, rdpcap, sendp, sniff, sr1
-from scapy.layers.inet import ICMP
+from scapy.all import IP, UDP, Ether, Raw, rdpcap, sendp, sniff, sr1  # type: ignore[attr-defined]
 
 if TYPE_CHECKING:
     from scapy.packet import Packet
+    from scapy.plist import PacketList
 
 log = structlog.get_logger()
 
@@ -164,7 +164,7 @@ class PacketCapture:
 
         self._stop_sniff = False
 
-        def do_capture():
+        def do_capture() -> None:
             packets = sniff(
                 iface=self.interface,
                 filter=self.filter_expr,
@@ -202,7 +202,7 @@ class PacketCapture:
         self._process_packets(packets)
         return self.captured
 
-    def _process_packets(self, packets) -> None:
+    def _process_packets(self, packets: PacketList) -> None:
         """Process captured packets into CapturedFrames."""
         for pkt in packets:
             if UDP in pkt and Raw in pkt:
@@ -378,7 +378,7 @@ def validate_data_frame_header(raw_bytes: bytes) -> dict[str, bool]:
     return results
 
 
-def extract_header_fields(raw_bytes: bytes) -> dict:
+def extract_header_fields(raw_bytes: bytes) -> dict[str, int | bytes]:
     """Extract header fields from a data frame.
 
     Args:
