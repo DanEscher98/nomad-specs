@@ -19,22 +19,16 @@ This repository contains **specifications only** for the NOMAD Protocol, a secur
 
 ## Architecture Layers
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  APPLICATION     MoshiMoshi • Future Apps (Whiteboard, Game)│
-├─────────────────────────────────────────────────────────────┤
-│  STATE LAYER     Application-defined: impl SyncState        │
-├─────────────────────────────────────────────────────────────┤
-│  EXTENSIONS      compression (zstd) • scrollback • prediction│
-├─────────────────────────────────────────────────────────────┤
-│  SYNC LAYER      versioning • idempotent diffs • convergence │
-├─────────────────────────────────────────────────────────────┤
-│  TRANSPORT       frames • session ID • nonce • keepalive     │
-├─────────────────────────────────────────────────────────────┤
-│  SECURITY        Noise_IK • XChaCha20-Poly1305 • BLAKE2s     │
-├─────────────────────────────────────────────────────────────┤
-│  UDP             unreliable datagrams                        │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+block-beta
+  columns 1
+  app["APPLICATION: MoshiMoshi • Future Apps (Whiteboard, Game)"]
+  state["STATE LAYER: Application-defined impl SyncState"]
+  ext["EXTENSIONS: compression (zstd) • scrollback • prediction"]
+  sync["SYNC LAYER: versioning • idempotent diffs • convergence"]
+  transport["TRANSPORT: frames • session ID • nonce • keepalive"]
+  security["SECURITY: Noise_IK • XChaCha20-Poly1305 • BLAKE2s"]
+  udp["UDP: unreliable datagrams"]
 ```
 
 ## Directory Structure

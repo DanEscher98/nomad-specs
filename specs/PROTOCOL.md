@@ -35,20 +35,15 @@ NOMAD is inspired by [Mosh](https://mosh.org/) (Mobile Shell) and its State Sync
 
 ## Protocol Layers
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  EXTENSIONS     compression (zstd) • scrollback • prediction │
-├─────────────────────────────────────────────────────────────┤
-│  STATE LAYER    Application-defined: impl SyncState          │
-├─────────────────────────────────────────────────────────────┤
-│  SYNC LAYER     versioning • idempotent diffs • convergence  │
-├─────────────────────────────────────────────────────────────┤
-│  TRANSPORT      frames • session ID • nonce • keepalive      │
-├─────────────────────────────────────────────────────────────┤
-│  SECURITY       Noise_IK • XChaCha20-Poly1305 • BLAKE2s      │
-├─────────────────────────────────────────────────────────────┤
-│  UDP            unreliable datagrams                         │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+block-beta
+  columns 1
+  ext["EXTENSIONS: compression (zstd) • scrollback • prediction"]
+  state["STATE LAYER: Application-defined impl SyncState"]
+  sync["SYNC LAYER: versioning • idempotent diffs • convergence"]
+  transport["TRANSPORT: frames • session ID • nonce • keepalive"]
+  security["SECURITY: Noise_IK • XChaCha20-Poly1305 • BLAKE2s"]
+  udp["UDP: unreliable datagrams"]
 ```
 
 | Layer | Specification | Responsibility |
