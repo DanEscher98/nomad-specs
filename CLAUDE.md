@@ -17,18 +17,38 @@ This repository contains **specifications only** for the Roam Protocol, a secure
 
 ## Architecture Layers
 
-```
-┌─────────────────────────────────────────────────┐
-│ EXTENSIONS (compression, scrollback, etc.)      │
-├─────────────────────────────────────────────────┤
-│ STATE LAYER (application-specific, e.g. Term)   │
-├─────────────────────────────────────────────────┤
-│ SYNC LAYER - versioning, diffs, convergence     │
-├─────────────────────────────────────────────────┤
-│ TRANSPORT LAYER - UDP, framing, migration       │
-├─────────────────────────────────────────────────┤
-│ SECURITY LAYER - Noise_IK, XChaCha20-Poly1305   │
-└─────────────────────────────────────────────────┘
+```mermaid
+block-beta
+  columns 1
+  block:app["APPLICATION LAYER"]
+    columns 3
+    terminal["MoshiMoshi\n(Terminal)"]
+    whiteboard["Future App\n(Whiteboard)"]
+    game["Future App\n(Game State)"]
+  end
+  block:state["STATE LAYER (domain-specific)"]
+    columns 1
+    statedesc["impl SyncState for YourType"]
+  end
+  block:sync["SYNC LAYER"]
+    columns 1
+    syncdesc["versioning • diffs • convergence • prediction"]
+  end
+  block:transport["TRANSPORT LAYER"]
+    columns 1
+    transportdesc["UDP • framing • connection migration • keepalive"]
+  end
+  block:security["SECURITY LAYER"]
+    columns 1
+    secdesc["Noise_IK • XChaCha20-Poly1305 • BLAKE2s"]
+  end
+
+  terminal --> statedesc
+  whiteboard --> statedesc
+  game --> statedesc
+  statedesc --> syncdesc
+  syncdesc --> transportdesc
+  transportdesc --> secdesc
 ```
 
 ## Directory Structure
@@ -74,7 +94,7 @@ roam-specs/
 
 ## Tech Stack
 
-- **Specs**: Markdown with ASCII diagrams
+- **Specs**: Markdown with Mermaid diagrams (renders on GitHub)
 - **Test Suite**: Python 3.11+
   - pytest (test runner)
   - hypothesis (property-based testing)
@@ -82,6 +102,30 @@ roam-specs/
   - docker (container orchestration)
 - **Dependency Management**: uv
 - **Containers**: Docker Compose
+
+## Diagram Conventions
+
+Use **Mermaid** for all diagrams (renders natively on GitHub):
+
+- **Architecture/Flow**: `block-beta` or `flowchart`
+- **Packet formats**: `packet` diagram (v11.0.0+)
+- **State machines**: `stateDiagram-v2`
+- **Sequences**: `sequenceDiagram`
+
+### Packet Diagram Example
+
+For protocol packet formats in specs, use Mermaid packet diagrams:
+
+```mermaid
+packet-beta
+  0-7: "Type"
+  8-15: "Flags"
+  16-63: "Session ID (48 bits)"
+  64-127: "Nonce Counter (64 bits)"
+  128-159: "Encrypted Payload..."
+```
+
+This renders better than ASCII art and is maintainable.
 
 ## Octopus Tentacle Breakdown
 
