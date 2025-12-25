@@ -1,0 +1,7 @@
+tentacle_id: t5-docker
+description: "Docker orchestration and plug & play infrastructure"
+branch: tentacle/t5-docker
+scope: "docker/*, tests/lib/containers.py, tests/conftest.py, CONFORMANCE.md"
+created: 2025-12-25
+brain_worktree: "/home/danyiel/Working/niceProjects/MoshiMoshi/roam-specs"
+worktree_path: ".worktrees/t5-docker"
