@@ -1,0 +1,7 @@
+tentacle_id: t1-security
+description: "Security layer spec + tests"
+branch: tentacle/t1-security
+scope: "specs/1-SECURITY.md, tests/unit/test_crypto*, tests/protocol/test_handshake*"
+created: 2025-12-25
+brain_worktree: "/home/danyiel/Working/niceProjects/MoshiMoshi/nomad-specs"
+worktree_path: ".worktrees/t1-security"
