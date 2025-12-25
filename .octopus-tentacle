@@ -1,7 +1,0 @@
-tentacle_id: t6-vectors
-description: "Reference codec and test vectors"
-branch: tentacle/t6-vectors
-scope: "tests/lib/reference.py, tests/vectors/*, specs/generate_vectors.py"
-created: 2025-12-25
-brain_worktree: "/home/danyiel/Working/niceProjects/MoshiMoshi/nomad-specs"
-worktree_path: ".worktrees/t6-vectors"
