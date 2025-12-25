@@ -105,21 +105,22 @@ roam-specs/
 
 ## Test Vector Strategy
 
-Vectors are **generated using reference libraries**, not hand-crafted:
+Vectors are **generated using reference libraries**, stored as **JSON5** (supports comments):
 
 ```
 specs/
 ├── PROTOCOL.md              # Human-readable spec
-└── generate_vectors.py      # Executable spec
+└── generate_vectors.py      # Executable spec (idempotent)
 
 tests/vectors/
-├── handshake_vectors.json   # Generated from snow + test keypairs
-├── frame_vectors.json       # Generated from cryptography lib
+├── handshake_vectors.json5  # Generated from snow + test keypairs
+├── frame_vectors.json5      # Generated from cryptography lib
 └── README.md                # Documents derivation of each vector
 ```
 
+- **JSON5 format**: Allows inline comments explaining each field
+- **Idempotent generation**: Running twice produces identical output (reproducibility)
 - Use `snow` (Noise protocol) and `cryptography` (XChaCha20-Poly1305) as reference
-- Generation scripts are idempotent (regenerating produces identical output)
 - Each vector includes metadata explaining its derivation
 - No magic numbers: every value traceable to spec + reference lib
 
