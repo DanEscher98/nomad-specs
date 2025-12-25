@@ -1,7 +1,0 @@
-tentacle_id: t3-sync
-description: "Sync layer spec + tests"
-branch: tentacle/t3-sync
-scope: "specs/3-SYNC.md, tests/protocol/test_sync*, tests/unit/test_diff*"
-created: 2025-12-25
-brain_worktree: "/home/danyiel/Working/niceProjects/MoshiMoshi/nomad-specs"
-worktree_path: ".worktrees/t3-sync"
