@@ -1,0 +1,46 @@
+# Roam Protocol Stub Implementation
+#
+# This is a minimal stub implementation used to test the test infrastructure.
+# It implements just enough to pass health checks and respond to basic probes.
+#
+# For actual protocol testing, use a real implementation.
+#
+# Build targets:
+#   - server: Echo server stub
+#   - client: Echo client stub
+
+FROM python:3.11-slim AS base
+
+WORKDIR /app
+
+# Install minimal dependencies
+RUN pip install --no-cache-dir aiohttp structlog
+
+# Copy stub implementation
+COPY stub/ /app/
+
+# ===========================================================================
+# Server Target
+# ===========================================================================
+
+FROM base AS server
+
+EXPOSE 19999/udp
+EXPOSE 8080/tcp
+
+ENV ROAM_MODE=server
+ENV ROAM_BIND_ADDR=0.0.0.0:19999
+ENV ROAM_LOG_LEVEL=debug
+
+CMD ["python", "stub_server.py"]
+
+# ===========================================================================
+# Client Target
+# ===========================================================================
+
+FROM base AS client
+
+ENV ROAM_MODE=client
+ENV ROAM_LOG_LEVEL=debug
+
+CMD ["python", "stub_client.py"]
