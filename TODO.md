@@ -3,51 +3,51 @@
 
 **Scope:** specs/3-SYNC.md, tests/protocol/test_sync*, tests/unit/test_diff*
 
-**BLOCKED BY:** t6-vectors (need reference codec first)
+**STATUS:** UNBLOCKED (t6-vectors merged)
 
 ## Tasks
 
 ### Spec Refinement
-- [ ] Review/refine `specs/3-SYNC.md` for completeness
-  - [ ] State versioning (sender_num, acked_num, base_num)
-  - [ ] Idempotent diff application
-  - [ ] Convergence guarantees
-  - [ ] SyncState trait/interface requirements
-  - [ ] Mermaid state machine diagrams
+- [x] Review/refine `specs/3-SYNC.md` for completeness
+  - [x] State versioning (sender_num, acked_num, base_num)
+  - [x] Idempotent diff application
+  - [x] Convergence guarantees
+  - [x] SyncState trait/interface requirements
+  - [x] Mermaid state machine diagrams (added stateDiagram-v2)
 
 ### Unit Tests (tests/unit/test_diff*.py)
-- [ ] `test_diff_encode.py` - Diff encoding
-  - [ ] Test against `tests/vectors/sync_vectors.json5`
-  - [ ] Various diff types
-- [ ] `test_diff_decode.py` - Diff decoding
-  - [ ] Valid diff parsing
-  - [ ] Malformed diff handling
-- [ ] `test_diff_apply.py` - Idempotent application
-  - [ ] Apply same diff twice = same result
-  - [ ] Out-of-order application
+- [x] `test_diff_encode.py` - Diff encoding
+  - [x] Test against `tests/vectors/sync_vectors.json5`
+  - [x] Various diff types
+- [x] `test_diff_decode.py` - Diff decoding
+  - [x] Valid diff parsing
+  - [x] Malformed diff handling
+- [x] `test_diff_apply.py` - Idempotent application
+  - [x] Apply same diff twice = same result
+  - [x] Out-of-order application
 
 ### Protocol Tests (tests/protocol/test_sync*.py)
-- [ ] `test_sync_flow.py` - Basic sync exchange
-  - [ ] State update → ack cycle
-  - [ ] Version number progression
-- [ ] `test_sync_convergence.py` - Convergence properties
-  - [ ] Both sides eventually agree
-  - [ ] Packet loss recovery
-  - [ ] Reordering tolerance
-- [ ] `test_sync_edge_cases.py` - Edge cases
-  - [ ] Empty state
-  - [ ] Large state
-  - [ ] Rapid updates
+- [x] `test_sync_flow.py` - Basic sync exchange
+  - [x] State update → ack cycle
+  - [x] Version number progression
+- [x] `test_sync_convergence.py` - Convergence properties
+  - [x] Both sides eventually agree
+  - [x] Packet loss recovery
+  - [x] Reordering tolerance
+- [x] `test_sync_edge_cases.py` - Edge cases
+  - [x] Empty state
+  - [x] Large state
+  - [x] Rapid updates
 
 ### Property Tests
-- [ ] `test_sync_properties.py` - Hypothesis tests
-  - [ ] Idempotency: apply(apply(state, diff), diff) == apply(state, diff)
-  - [ ] Commutativity where applicable
-  - [ ] Convergence under random packet loss
+- [x] `test_sync_properties.py` - Hypothesis tests
+  - [x] Idempotency: apply(apply(state, diff), diff) == apply(state, diff)
+  - [x] Commutativity where applicable
+  - [x] Convergence under random packet loss
 
 ## Dependencies
-- `tests/lib/reference.py` from t6-vectors
-- `tests/vectors/sync_vectors.json5` from t6-vectors (need to create)
+- [x] `tests/lib/reference.py` from t6-vectors
+- [x] `tests/vectors/sync_vectors.json5` from t6-vectors
 
 ## Notes
 - Sync layer is state-type agnostic (works with any SyncState impl)
