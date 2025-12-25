@@ -68,16 +68,17 @@ nomad-specs/
 │   ├── pyproject.toml
 │   ├── conftest.py           # pytest fixtures
 │   │
-│   ├── vectors/              # Static test vectors (JSON)
-│   │   ├── handshake_vectors.json
-│   │   ├── frame_vectors.json
-│   │   └── sync_vectors.json
+│   ├── vectors/              # Static test vectors (JSON5)
+│   │   ├── handshake_vectors.json5
+│   │   ├── frame_vectors.json5
+│   │   └── sync_vectors.json5
 │   │
-│   ├── unit/                 # Pure logic tests
-│   ├── protocol/             # Protocol behavior tests
-│   ├── wire/                 # Byte-level validation
+│   ├── unit/                 # Pure logic tests (all implementations)
+│   ├── protocol/             # Protocol behavior tests (all implementations)
+│   ├── wire/                 # Byte-level validation (all implementations)
 │   ├── interop/              # Cross-implementation tests
-│   ├── adversarial/          # Security tests
+│   ├── adversarial/          # Security tests (all implementations)
+│   ├── terminal/             # Terminal-specific tests (terminal impls only)
 │   │
 │   └── lib/                  # Test utilities
 │       ├── containers.py     # Docker management
@@ -128,6 +129,22 @@ packet-beta
 ```
 
 This renders better than ASCII art and is maintainable.
+
+## Test Categories
+
+Tests are organized so implementations can validate core protocol vs state-specific behavior:
+
+| Category | Path | Required For | Description |
+|----------|------|--------------|-------------|
+| Unit | `tests/unit/` | All | Pure logic tests (encoding, crypto) |
+| Protocol | `tests/protocol/` | All | Protocol behavior (handshake, sync, rekey) |
+| Wire | `tests/wire/` | All | Byte-level format compliance |
+| Adversarial | `tests/adversarial/` | All | Security tests (replay, malformed) |
+| Terminal | `tests/terminal/` | Terminal only | Scrollback, prediction, terminal state |
+| Interop | `tests/interop/` | Optional | Cross-implementation testing |
+
+**Run core tests:** `just test-core` (excludes terminal/)
+**Run all tests:** `just test` (includes terminal/)
 
 ## Octopus Tentacle Breakdown
 
