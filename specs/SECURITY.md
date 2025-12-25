@@ -46,6 +46,7 @@ Initiator → Responder
 
 ```mermaid
 packet
+  bitsPerRow 16
   +1: "Type 0x01"
   +1: "Reserved"
   +2: "Protocol Version"
