@@ -1,6 +1,6 @@
 # NOMAD Transport Layer Specification
 
-**Parent:** [PROTOCOL.md](PROTOCOL.md)
+**Parent:** [0-PROTOCOL.md](0-PROTOCOL.md)
 
 ---
 
@@ -95,7 +95,7 @@ packet
 | Timestamp | 4 bytes | Sender's current time in ms since session start (LE32) |
 | Timestamp Echo | 4 bytes | Most recent timestamp received from peer (LE32), or 0 |
 | Payload Length | 2 bytes | Length of sync message (LE16) |
-| Sync Message | variable | See [SYNC.md](SYNC.md) |
+| Sync Message | variable | See [3-SYNC.md](3-SYNC.md) |
 
 The timestamp fields enable RTT estimation (see §RTT Estimation).
 

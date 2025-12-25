@@ -1,6 +1,6 @@
 # NOMAD Extensions Specification
 
-**Parent:** [PROTOCOL.md](PROTOCOL.md)
+**Parent:** [0-PROTOCOL.md](0-PROTOCOL.md)
 
 ---
 

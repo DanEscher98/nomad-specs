@@ -1,6 +1,6 @@
 # NOMAD Sync Layer Specification
 
-**Parent:** [PROTOCOL.md](PROTOCOL.md)
+**Parent:** [0-PROTOCOL.md](0-PROTOCOL.md)
 
 ---
 
@@ -195,7 +195,7 @@ sequenceDiagram
 
 ## Retransmission Strategy
 
-Since diffs are idempotent, retransmission is simple. Timing is controlled by the transport layer's adaptive RTO (see [TRANSPORT.md](TRANSPORT.md#retransmission)).
+Since diffs are idempotent, retransmission is simple. Timing is controlled by the transport layer's adaptive RTO (see [2-TRANSPORT.md](2-TRANSPORT.md#retransmission)).
 
 ```python
 def should_retransmit() -> bool:
@@ -228,7 +228,7 @@ The diff payload format is **application-defined**. The sync layer treats it as 
 
 ### Compression
 
-If compression is enabled (see [EXTENSIONS.md](EXTENSIONS.md)), it applies to the diff payload:
+If compression is enabled (see [4-EXTENSIONS.md](4-EXTENSIONS.md)), it applies to the diff payload:
 
 ```
 wire_payload = compress(diff_payload)  # if compression enabled
@@ -268,7 +268,7 @@ A key property of NOMAD (inherited from Mosh) is **state skipping**: intermediat
 ### Implications for Applications
 
 - **Interactive use**: Excellent - feels responsive even on high-latency links
-- **Scrollback**: Lost unless explicitly synchronized (see [EXTENSIONS.md](EXTENSIONS.md#scrollback))
+- **Scrollback**: Lost unless explicitly synchronized (see [4-EXTENSIONS.md](4-EXTENSIONS.md#scrollback))
 - **Logging**: Applications needing full history should use TCP, not NOMAD
 
 ### Asymmetric Skip-ability

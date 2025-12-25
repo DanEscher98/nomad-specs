@@ -48,10 +48,10 @@ block-beta
 
 | Layer | Specification | Responsibility |
 |-------|---------------|----------------|
-| Security | [SECURITY.md](SECURITY.md) | Handshake, encryption, rekeying |
-| Transport | [TRANSPORT.md](TRANSPORT.md) | Framing, session management, roaming |
-| Sync | [SYNC.md](SYNC.md) | State versioning, diffs, convergence |
-| Extensions | [EXTENSIONS.md](EXTENSIONS.md) | Compression, scrollback, prediction |
+| Security | [1-SECURITY.md](1-SECURITY.md) | Handshake, encryption, rekeying |
+| Transport | [2-TRANSPORT.md](2-TRANSPORT.md) | Framing, session management, roaming |
+| Sync | [3-SYNC.md](3-SYNC.md) | State versioning, diffs, convergence |
+| Extensions | [4-EXTENSIONS.md](4-EXTENSIONS.md) | Compression, scrollback, prediction |
 
 ---
 
@@ -166,11 +166,11 @@ All timing constants in one place (details in respective specs):
 
 | Type | Value | Description | Spec |
 |------|-------|-------------|------|
-| HandshakeInit | `0x01` | Initiate handshake | [SECURITY.md](SECURITY.md) |
-| HandshakeResp | `0x02` | Handshake response | [SECURITY.md](SECURITY.md) |
-| Data | `0x03` | Encrypted data frame | [TRANSPORT.md](TRANSPORT.md) |
-| Rekey | `0x04` | Initiate rekeying | [SECURITY.md](SECURITY.md) |
-| Close | `0x05` | Graceful termination | [TRANSPORT.md](TRANSPORT.md) |
+| HandshakeInit | `0x01` | Initiate handshake | [1-SECURITY.md](1-SECURITY.md) |
+| HandshakeResp | `0x02` | Handshake response | [1-SECURITY.md](1-SECURITY.md) |
+| Data | `0x03` | Encrypted data frame | [2-TRANSPORT.md](2-TRANSPORT.md) |
+| Rekey | `0x04` | Initiate rekeying | [1-SECURITY.md](1-SECURITY.md) |
+| Close | `0x05` | Graceful termination | [2-TRANSPORT.md](2-TRANSPORT.md) |
 
 ---
 
