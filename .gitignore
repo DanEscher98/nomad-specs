@@ -39,9 +39,9 @@ capture/
 !.env.example
 docker/.env
 
-# External implementations (separate repos)
-docker/rs-impl/
-docker/go-impl/
+# External implementations (separate repos, may be symlinks)
+docker/rs-impl
+docker/go-impl
 
 # Octopus dev
 .worktrees/
