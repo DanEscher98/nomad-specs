@@ -138,6 +138,28 @@ NOMAD uses a **fixed** cryptographic suite with **no negotiation**. If vulnerabi
 | `HASH_SIZE` | 32 bytes | BLAKE2s |
 | `SESSION_ID_SIZE` | 6 bytes | 48-bit |
 
+### Timing Constants Summary
+
+All timing constants in one place (details in respective specs):
+
+| Constant | Value | Spec | Description |
+|----------|-------|------|-------------|
+| `INITIAL_RTO` | 1000 ms | TRANSPORT | Initial retransmission timeout |
+| `MIN_RTO` | 100 ms | TRANSPORT | Minimum RTO |
+| `MAX_RTO` | 60000 ms | TRANSPORT | Maximum RTO |
+| `MIN_FRAME_INTERVAL` | SRTT/2 or 20ms | TRANSPORT | Minimum time between frames |
+| `COLLECTION_INTERVAL` | 8 ms | TRANSPORT | Batch rapid state changes |
+| `DELAYED_ACK_TIMEOUT` | 100 ms | TRANSPORT | Max delay for ack-only |
+| `MAX_FRAME_RATE` | 50 Hz | TRANSPORT | Hard cap on frame rate |
+| `KEEPALIVE_INTERVAL` | 25 s | TRANSPORT | Send keepalive if idle |
+| `DEAD_INTERVAL` | 60 s | TRANSPORT | Connection timeout |
+| `REKEY_AFTER_TIME` | 120 s | SECURITY | Initiate rekey |
+| `REJECT_AFTER_TIME` | 180 s | SECURITY | Reject old keys |
+| `REKEY_AFTER_MESSAGES` | 2^60 | SECURITY | Soft message limit |
+| `REJECT_AFTER_MESSAGES` | 2^64-1 | SECURITY | Hard message limit |
+| `HANDSHAKE_TIMEOUT` | 1000 ms | SECURITY | Initial handshake timeout |
+| `HANDSHAKE_MAX_RETRIES` | 5 | SECURITY | Handshake retry limit |
+
 ---
 
 ## Frame Types

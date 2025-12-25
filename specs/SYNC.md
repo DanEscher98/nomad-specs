@@ -81,11 +81,22 @@ packet
 |-------|------|-------------|
 | Sender State Num | 8 bytes | Version of sender's current state (LE64) |
 | Acked State Num | 8 bytes | Highest version received from peer (LE64) |
-| Base State Num | 8 bytes | Version this diff applies to (LE64) |
+| Base State Num | 8 bytes | Version this diff was computed from (LE64) |
 | Diff Length | 4 bytes | Length of diff payload in bytes (LE32) |
 | Diff Payload | variable | Application-specific diff encoding |
 
 **Minimum size:** 28 bytes (header only, empty diff for ack-only)
+
+### Base State Num Rationale
+
+The `base_state_num` field serves two purposes:
+
+1. **Debugging**: Helps trace which state transition a diff represents
+2. **Future optimization**: Could enable diff chaining or conflict detection
+
+**Current behavior**: Receivers ignore `base_state_num` and apply diffs based solely on `sender_state_num` comparison. The diff MUST be designed to converge regardless of the receiver's current state (idempotent).
+
+> **Note**: Mosh's SSP uses only two version numbers. The third field adds 8 bytes overhead but improves debuggability. Implementations MAY validate that `base_state_num <= sender_state_num`.
 
 ---
 
@@ -184,22 +195,22 @@ sequenceDiagram
 
 ## Retransmission Strategy
 
-Since diffs are idempotent, retransmission is simple:
+Since diffs are idempotent, retransmission is simple. Timing is controlled by the transport layer's adaptive RTO (see [TRANSPORT.md](TRANSPORT.md#retransmission)).
 
 ```python
 def should_retransmit() -> bool:
     # Retransmit if peer hasn't acked our latest state
     if last_acked < current_num:
-        # And sufficient time has passed
-        if time_since_last_send > RETRANSMIT_INTERVAL:
+        # Use transport layer's adaptive timeout
+        if time_since_last_send > transport.RTO:
             return True
     return False
 ```
 
-| Constant | Value | Description |
-|----------|-------|-------------|
-| `RETRANSMIT_INTERVAL` | 250ms | Minimum time between retransmits |
-| `MAX_RETRANSMIT_INTERVAL` | 5s | Maximum backoff |
+The sync layer defers to the transport layer for:
+- Adaptive timeout calculation (based on RTT)
+- Exponential backoff on repeated retransmits
+- Frame rate limiting
 
 ---
 
@@ -242,12 +253,34 @@ Used for:
 
 ---
 
-## State Version Overflow
+## State Skipping
 
-State numbers are 64-bit unsigned integers. At 1000 updates/second:
-- Time to overflow: ~584 million years
+A key property of NOMAD (inherited from Mosh) is **state skipping**: intermediate states may be lost if the network is slow.
 
-No overflow handling required. Sessions will rekey and terminate long before overflow.
+### Trade-offs
+
+| Scenario | Behavior | Impact |
+|----------|----------|--------|
+| Fast typing | Characters batched | Lower bandwidth, same end result |
+| Large output | Intermediate screens skipped | Terminal catches up quickly |
+| `cat bigfile.txt` | Most output lost | User sees final state only |
+
+### Implications for Applications
+
+- **Interactive use**: Excellent - feels responsive even on high-latency links
+- **Scrollback**: Lost unless explicitly synchronized (see [EXTENSIONS.md](EXTENSIONS.md#scrollback))
+- **Logging**: Applications needing full history should use TCP, not NOMAD
+
+### Asymmetric Skip-ability
+
+Different state types may have different requirements:
+
+| Direction | State Type | Skip-able? | Rationale |
+|-----------|------------|------------|-----------|
+| Client→Server | Keystrokes | ❌ No | Every keystroke matters |
+| Server→Client | Screen state | ✅ Yes | Only current state matters |
+
+State types MUST document whether intermediate states can be safely skipped.
 
 ---
 

@@ -10,6 +10,7 @@ The transport layer provides:
 - Frame construction and parsing
 - Session identification
 - Connection migration (roaming)
+- RTT estimation and adaptive timing
 - Keepalive and timeout management
 - Graceful termination
 
@@ -29,6 +30,16 @@ class ConnectionState:
     remote_endpoint: SocketAddr  # Last known peer address
     last_received: Timestamp     # For timeout detection
     epoch: uint32                # Increments on rekey
+
+    # RTT estimation (see §RTT Estimation)
+    srtt: float                  # Smoothed RTT in milliseconds
+    rttvar: float                # RTT variance
+    last_send_time: Timestamp    # When we last sent a frame
+    pending_timestamp: uint32    # Timestamp awaiting echo
+
+    # Frame pacing (see §Frame Pacing)
+    last_frame_sent: Timestamp   # For rate limiting
+    pending_state_change: bool   # State changed, awaiting collection interval
 ```
 
 ---
@@ -74,17 +85,19 @@ After decryption:
 ```mermaid
 packet
   +32: "Timestamp (4 bytes, ms)"
+  +32: "Timestamp Echo (4 bytes)"
   +16: "Payload Length"
-  +16: "Reserved"
   +64: "Sync Message..."
 ```
 
 | Field | Size | Description |
 |-------|------|-------------|
-| Timestamp | 4 bytes | Milliseconds since epoch start (for RTT) |
+| Timestamp | 4 bytes | Sender's current time in ms since session start (LE32) |
+| Timestamp Echo | 4 bytes | Most recent timestamp received from peer (LE32), or 0 |
 | Payload Length | 2 bytes | Length of sync message (LE16) |
-| Reserved | 2 bytes | Must be 0 |
 | Sync Message | variable | See [SYNC.md](SYNC.md) |
+
+The timestamp fields enable RTT estimation (see §RTT Estimation).
 
 ---
 
@@ -147,6 +160,26 @@ sequenceDiagram
 3. No handshake required
 4. Works for both initiator and responder
 
+### Anti-Amplification
+
+To prevent DDoS amplification attacks via address spoofing:
+
+1. **Unvalidated address limit**: Before receiving an authenticated frame from a new address, endpoint MUST NOT send more than **3× the bytes received** from that address.
+2. **Validation**: An address is considered "validated" after receiving any frame with valid AEAD tag from it.
+3. **Rate limiting**: Implementations SHOULD rate-limit migrations to at most one per second from different /24 (IPv4) or /48 (IPv6) subnets.
+
+```python
+def on_migration(frame, new_addr):
+    if not is_validated(new_addr):
+        bytes_sent_to[new_addr] += len(response)
+        if bytes_sent_to[new_addr] > 3 * bytes_recv_from[new_addr]:
+            return  # Amplification limit reached
+
+    if verify_aead(frame):
+        mark_validated(new_addr)
+        remote_endpoint = new_addr
+```
+
 ---
 
 ## Keepalive
@@ -163,6 +196,134 @@ sequenceDiagram
 A keepalive is a Data frame (0x03) with:
 - Flags: `ACK_ONLY` (0x01)
 - Payload: Zero-length sync message (just the ack)
+
+---
+
+## RTT Estimation
+
+Accurate RTT measurement is **critical** for performance. Without it, retransmission timing and frame pacing cannot adapt to network conditions.
+
+### Timestamp Protocol
+
+Every frame carries:
+- **Timestamp**: Sender's local time (ms since session start)
+- **Timestamp Echo**: Most recent timestamp received from peer
+
+When a frame is received with a timestamp echo:
+```python
+def on_timestamp_echo(echo_ts, recv_time):
+    if echo_ts == pending_timestamp:
+        rtt_sample = recv_time - last_send_time
+        update_rtt(rtt_sample)
+        pending_timestamp = 0
+```
+
+### RTT Calculation (RFC 6298)
+
+```python
+# Initial values (before first measurement)
+SRTT = 0
+RTTVAR = 0
+RTO = 1000  # 1 second initial timeout
+
+def update_rtt(sample):
+    if SRTT == 0:
+        # First measurement
+        SRTT = sample
+        RTTVAR = sample / 2
+    else:
+        # Subsequent measurements
+        RTTVAR = 0.75 * RTTVAR + 0.25 * abs(SRTT - sample)
+        SRTT = 0.875 * SRTT + 0.125 * sample
+
+    RTO = SRTT + max(100, 4 * RTTVAR)  # Minimum 100ms granularity
+    RTO = min(RTO, MAX_RTO)            # Cap at MAX_RTO
+```
+
+### RTT Constants
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `INITIAL_RTO` | 1000 ms | Before first RTT sample |
+| `MIN_RTO` | 100 ms | Minimum retransmission timeout |
+| `MAX_RTO` | 60000 ms | Maximum retransmission timeout |
+
+---
+
+## Frame Pacing
+
+To prevent buffer bloat and network congestion, implementations MUST pace frame transmission.
+
+### Timing Constants
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `MIN_FRAME_INTERVAL` | `max(SRTT/2, 20ms)` | Minimum time between frames |
+| `COLLECTION_INTERVAL` | 8 ms | Wait after state change before sending |
+| `DELAYED_ACK_TIMEOUT` | 100 ms | Max time to delay ack-only frame |
+| `MAX_FRAME_RATE` | 50 Hz | Hard cap on frame rate |
+
+### Frame Pacing Algorithm
+
+```python
+def maybe_send_frame():
+    now = current_time()
+
+    # Respect minimum frame interval
+    min_interval = max(SRTT / 2, 20)  # ms
+    if now - last_frame_sent < min_interval:
+        schedule_send(last_frame_sent + min_interval)
+        return
+
+    # Collection interval: batch rapid state changes
+    if pending_state_change:
+        if now - state_change_time < COLLECTION_INTERVAL:
+            schedule_send(state_change_time + COLLECTION_INTERVAL)
+            return
+
+    # Delayed ACK: wait to piggyback on data
+    if ack_pending and not data_pending:
+        if now - ack_pending_since < DELAYED_ACK_TIMEOUT:
+            schedule_send(ack_pending_since + DELAYED_ACK_TIMEOUT)
+            return
+
+    send_frame()
+    last_frame_sent = now
+```
+
+### Rationale
+
+- **SRTT/2 interval**: Ensures roughly one frame in flight at a time, preventing queue buildup
+- **Collection interval**: Batches rapid state changes (e.g., fast typing) into single frames
+- **Delayed ACK**: 99.9% of acks piggyback on data frames (Mosh measurement)
+- **50 Hz cap**: Human perception threshold; faster updates waste bandwidth
+
+---
+
+## Retransmission
+
+### Adaptive Retransmission
+
+Unlike the fixed 250ms interval, retransmission MUST be adaptive:
+
+```python
+def should_retransmit():
+    if last_acked < current_state_num:
+        if time_since_last_send > RTO:
+            return True
+    return False
+
+def on_retransmit_timeout():
+    RTO = min(RTO * 2, MAX_RTO)  # Exponential backoff
+    retransmit_count += 1
+```
+
+### Retransmission Constants
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `MAX_RETRANSMITS` | 10 | Give up after this many retransmits |
+| `RETRANSMIT_BACKOFF` | 2× | Exponential backoff multiplier |
 
 ---
 
@@ -220,6 +381,10 @@ Implementations SHOULD:
 | Data frame format | `tests/wire/test_wire_format.py` |
 | Frame parsing | `tests/unit/test_frame_encoding.py` |
 | Connection migration | `tests/protocol/test_roaming.py` |
+| Anti-amplification | `tests/adversarial/test_amplification.py` |
+| RTT estimation | `tests/protocol/test_rtt_estimation.py` |
+| Frame pacing | `tests/protocol/test_frame_pacing.py` |
+| Retransmission | `tests/protocol/test_retransmission.py` |
 | Timeout handling | `tests/protocol/test_timeout_handling.py` |
 | MTU compliance | `tests/wire/test_packet_sizes.py` |
 | Error handling | `tests/adversarial/test_malformed_packets.py` |
