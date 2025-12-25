@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+.uv/
+
+# pytest
+.pytest_cache/
+.hypothesis/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+capture/
+*.pcap
+
+# Octopus dev
+.worktrees/
+.octopus/log.md
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Temp
+*.tmp
+*.bak
