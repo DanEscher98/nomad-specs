@@ -28,6 +28,27 @@ from lib.containers import (
     get_test_keypairs,
 )
 
+
+def require_env(name: str) -> str:
+    """Get required environment variable or fail with clear error.
+
+    Args:
+        name: Environment variable name.
+
+    Returns:
+        The environment variable value.
+
+    Raises:
+        RuntimeError: If the variable is not set.
+    """
+    value = os.environ.get(name)
+    if not value:
+        raise RuntimeError(
+            f"Required environment variable {name} is not set.\n"
+            f"Copy docker/.env.example to docker/.env and configure it."
+        )
+    return value
+
 if TYPE_CHECKING:
     from docker.models.containers import Container
 
@@ -77,11 +98,15 @@ def container_manager(docker_client) -> Iterator[ContainerManager]:
 
     Creates an isolated network for tests and manages container lifecycle.
     Cleans up all containers and network after tests complete.
+
+    Required environment variables:
+        NOMAD_TEST_NETWORK: Docker network name for tests
+        NOMAD_TEST_SUBNET: Subnet for test network (CIDR notation)
     """
     manager = ContainerManager(
         client=docker_client,
-        network_name=os.environ.get("NOMAD_TEST_NETWORK", "nomad-conformance-net"),
-        subnet=os.environ.get("NOMAD_TEST_SUBNET", "172.31.0.0/16"),
+        network_name=require_env("NOMAD_TEST_NETWORK"),
+        subnet=require_env("NOMAD_TEST_SUBNET"),
     )
 
     # Ensure network exists
@@ -131,8 +156,8 @@ def client_container(
     Yields:
         Container: The running client container.
     """
-    # Get server IP from the container
-    server_ip = "172.31.0.10"  # Fixed IP from container manager
+    # Get server IP from environment
+    server_ip = require_env("NOMAD_TEST_SERVER_IP")
 
     with container_manager.client(
         server_ip=server_ip,
@@ -168,41 +193,51 @@ def packet_capture(
 
 @pytest.fixture
 def server_config(test_keypairs: TestKeyPairs) -> ContainerConfig:
-    """Default server container configuration.
+    """Server container configuration from environment.
+
+    Required environment variables:
+        NOMAD_TEST_SERVER_IP: Server IP address in test network
+        NOMAD_STATE_TYPE: State type for sync layer
+        NOMAD_LOG_LEVEL: Logging verbosity
 
     Returns:
         ContainerConfig: Configuration for starting a server.
     """
     return ContainerConfig(
         target="server",
-        ip_address="172.31.0.10",
+        ip_address=require_env("NOMAD_TEST_SERVER_IP"),
         env={
             "NOMAD_MODE": "server",
             "NOMAD_SERVER_PRIVATE_KEY": test_keypairs.server.private_key,
             "NOMAD_SERVER_PUBLIC_KEY": test_keypairs.server.public_key,
-            "NOMAD_STATE_TYPE": "nomad.echo.v1",
-            "NOMAD_LOG_LEVEL": "debug",
-            "NOMAD_BIND_ADDR": "0.0.0.0:19999",
+            "NOMAD_STATE_TYPE": require_env("NOMAD_STATE_TYPE"),
+            "NOMAD_LOG_LEVEL": require_env("NOMAD_LOG_LEVEL"),
+            "NOMAD_BIND_ADDR": f"0.0.0.0:{require_env('NOMAD_PORT')}",
         },
     )
 
 
 @pytest.fixture
 def client_config(test_keypairs: TestKeyPairs) -> ContainerConfig:
-    """Default client container configuration.
+    """Client container configuration from environment.
+
+    Required environment variables:
+        NOMAD_TEST_SERVER_IP: Server IP to connect to
+        NOMAD_TEST_CLIENT_IP: Client IP address in test network
+        NOMAD_LOG_LEVEL: Logging verbosity
 
     Returns:
         ContainerConfig: Configuration for starting a client.
     """
     return ContainerConfig(
         target="client",
-        ip_address="172.31.0.20",
+        ip_address=require_env("NOMAD_TEST_CLIENT_IP"),
         env={
             "NOMAD_MODE": "client",
-            "NOMAD_SERVER_HOST": "172.31.0.10",
-            "NOMAD_SERVER_PORT": "19999",
+            "NOMAD_SERVER_HOST": require_env("NOMAD_TEST_SERVER_IP"),
+            "NOMAD_SERVER_PORT": require_env("NOMAD_PORT"),
             "NOMAD_SERVER_PUBLIC_KEY": test_keypairs.server.public_key,
-            "NOMAD_LOG_LEVEL": "debug",
+            "NOMAD_LOG_LEVEL": require_env("NOMAD_LOG_LEVEL"),
         },
     )
 
