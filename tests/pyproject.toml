@@ -1,10 +1,10 @@
 [project]
-name = "roam-conformance"
+name = "nomad-conformance"
 version = "0.1.0"
-description = "Roam Protocol conformance test suite"
+description = "Nomad Protocol conformance test suite"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-authors = [{ name = "Roam Protocol Authors" }]
+authors = [{ name = "Nomad Protocol Authors" }]
 
 dependencies = [
     # Test framework

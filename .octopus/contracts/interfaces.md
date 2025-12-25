@@ -6,13 +6,13 @@ Implementations must expose:
 
 ```yaml
 # Environment variables
-ROAM_SERVER_PRIVATE_KEY: base64  # Server's static private key
-ROAM_SERVER_PUBLIC_KEY: base64   # Server's static public key
-ROAM_STATE_TYPE: string          # e.g., "roam.echo.v1"
-ROAM_LOG_LEVEL: debug|info|warn
+NOMAD_SERVER_PRIVATE_KEY: base64  # Server's static private key
+NOMAD_SERVER_PUBLIC_KEY: base64   # Server's static public key
+NOMAD_STATE_TYPE: string          # e.g., "nomad.echo.v1"
+NOMAD_LOG_LEVEL: debug|info|warn
 
 # Ports
-19999/udp: Roam protocol
+19999/udp: Nomad protocol
 8080/tcp:  Health check endpoint
 
 # Health check
@@ -24,7 +24,7 @@ GET /health -> 200 OK
 ```python
 # tests/lib/reference.py
 
-class RoamCodec:
+class NomadCodec:
     """Full protocol reference implementation."""
 
     # Handshake

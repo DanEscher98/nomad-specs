@@ -1,5 +1,5 @@
 """
-Pytest configuration and fixtures for Roam Protocol conformance tests.
+Pytest configuration and fixtures for Nomad Protocol conformance tests.
 
 This module provides:
 - Container fixtures for server/client lifecycle
@@ -80,8 +80,8 @@ def container_manager(docker_client) -> Iterator[ContainerManager]:
     """
     manager = ContainerManager(
         client=docker_client,
-        network_name=os.environ.get("ROAM_TEST_NETWORK", "roam-conformance-net"),
-        subnet=os.environ.get("ROAM_TEST_SUBNET", "172.31.0.0/16"),
+        network_name=os.environ.get("NOMAD_TEST_NETWORK", "nomad-conformance-net"),
+        subnet=os.environ.get("NOMAD_TEST_SUBNET", "172.31.0.0/16"),
     )
 
     # Ensure network exists
@@ -177,12 +177,12 @@ def server_config(test_keypairs: TestKeyPairs) -> ContainerConfig:
         target="server",
         ip_address="172.31.0.10",
         env={
-            "ROAM_MODE": "server",
-            "ROAM_SERVER_PRIVATE_KEY": test_keypairs.server.private_key,
-            "ROAM_SERVER_PUBLIC_KEY": test_keypairs.server.public_key,
-            "ROAM_STATE_TYPE": "roam.echo.v1",
-            "ROAM_LOG_LEVEL": "debug",
-            "ROAM_BIND_ADDR": "0.0.0.0:19999",
+            "NOMAD_MODE": "server",
+            "NOMAD_SERVER_PRIVATE_KEY": test_keypairs.server.private_key,
+            "NOMAD_SERVER_PUBLIC_KEY": test_keypairs.server.public_key,
+            "NOMAD_STATE_TYPE": "nomad.echo.v1",
+            "NOMAD_LOG_LEVEL": "debug",
+            "NOMAD_BIND_ADDR": "0.0.0.0:19999",
         },
     )
 
@@ -198,11 +198,11 @@ def client_config(test_keypairs: TestKeyPairs) -> ContainerConfig:
         target="client",
         ip_address="172.31.0.20",
         env={
-            "ROAM_MODE": "client",
-            "ROAM_SERVER_HOST": "172.31.0.10",
-            "ROAM_SERVER_PORT": "19999",
-            "ROAM_SERVER_PUBLIC_KEY": test_keypairs.server.public_key,
-            "ROAM_LOG_LEVEL": "debug",
+            "NOMAD_MODE": "client",
+            "NOMAD_SERVER_HOST": "172.31.0.10",
+            "NOMAD_SERVER_PORT": "19999",
+            "NOMAD_SERVER_PUBLIC_KEY": test_keypairs.server.public_key,
+            "NOMAD_LOG_LEVEL": "debug",
         },
     )
 
@@ -277,7 +277,7 @@ def pytest_collection_modifyitems(config, items):
 def pytest_report_header(config):
     """Add information to the pytest header."""
     lines = []
-    lines.append("Roam Protocol Conformance Test Suite")
+    lines.append("Nomad Protocol Conformance Test Suite")
     lines.append(f"  Docker dir: {Path(__file__).parent.parent / 'docker'}")
 
     # Check Docker status

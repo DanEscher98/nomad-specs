@@ -1,12 +1,12 @@
 """
-Roam Protocol Stub Server
+Nomad Protocol Stub Server
 
 A minimal stub server that:
 1. Exposes health check endpoint on HTTP 8080
 2. Listens for UDP on 19999 and echoes back
 3. Logs all activity for debugging
 
-This is NOT a real Roam implementation. It's used to test the
+This is NOT a real Nomad implementation. It's used to test the
 test infrastructure (Docker orchestration, fixtures, etc.).
 """
 
@@ -30,7 +30,7 @@ structlog.configure(
     ],
     wrapper_class=structlog.make_filtering_bound_logger(
         structlog.stdlib.NAME_TO_LEVEL.get(
-            os.environ.get("ROAM_LOG_LEVEL", "debug").lower(), 10
+            os.environ.get("NOMAD_LOG_LEVEL", "debug").lower(), 10
         )
     ),
 )
@@ -41,9 +41,9 @@ class StubServer:
     """Minimal stub server for testing infrastructure."""
 
     def __init__(self) -> None:
-        self.bind_addr = os.environ.get("ROAM_BIND_ADDR", "0.0.0.0:19999")
-        self.state_type = os.environ.get("ROAM_STATE_TYPE", "roam.echo.v1")
-        self.server_public_key = os.environ.get("ROAM_SERVER_PUBLIC_KEY", "")
+        self.bind_addr = os.environ.get("NOMAD_BIND_ADDR", "0.0.0.0:19999")
+        self.state_type = os.environ.get("NOMAD_STATE_TYPE", "nomad.echo.v1")
+        self.server_public_key = os.environ.get("NOMAD_SERVER_PUBLIC_KEY", "")
         self.running = False
         self.udp_transport: asyncio.DatagramTransport | None = None
         self.packets_received = 0

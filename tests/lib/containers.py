@@ -1,5 +1,5 @@
 """
-Docker container management for Roam conformance tests.
+Docker container management for Nomad conformance tests.
 
 This module provides utilities for managing Docker containers during testing:
 - Starting/stopping server and client containers
@@ -7,7 +7,7 @@ This module provides utilities for managing Docker containers during testing:
 - Container lifecycle management
 - Packet capture management
 
-The design allows plugging in any Roam implementation by pointing
+The design allows plugging in any Nomad implementation by pointing
 SERVER_CONTEXT/SERVER_DOCKERFILE environment variables to the implementation.
 """
 
@@ -39,7 +39,7 @@ DEFAULT_COMPOSE_FILE = DOCKER_DIR / "docker-compose.yml"
 
 @dataclass
 class ContainerConfig:
-    """Configuration for a Roam container."""
+    """Configuration for a Nomad container."""
 
     # Build context (path to implementation directory)
     context: Path = field(default_factory=lambda: DOCKER_DIR)
@@ -54,7 +54,7 @@ class ContainerConfig:
     env: dict[str, str] = field(default_factory=dict)
 
     # Network settings
-    network: str = "roam-net"
+    network: str = "nomad-net"
     ip_address: str | None = None
 
     # Health check settings
@@ -64,7 +64,7 @@ class ContainerConfig:
 
 @dataclass
 class KeyPair:
-    """A Roam keypair for testing."""
+    """A Nomad keypair for testing."""
 
     private_key: str  # Base64-encoded
     public_key: str  # Base64-encoded
@@ -81,7 +81,7 @@ class TestKeyPairs:
     server: KeyPair = field(
         default_factory=lambda: KeyPair(
             # These are test-only keys generated from a known seed
-            # Seed: "roam-test-server-key-v1"
+            # Seed: "nomad-test-server-key-v1"
             private_key="SGVsbG8gV29ybGQhIFRoaXMgaXMgYSB0ZXN0IGtleQ==",
             public_key="VGVzdCBwdWJsaWMga2V5IGZvciBSb2FtIHByb3RvY29s",
         )
@@ -90,7 +90,7 @@ class TestKeyPairs:
     # Client keypair (well-known for testing)
     client: KeyPair = field(
         default_factory=lambda: KeyPair(
-            # Seed: "roam-test-client-key-v1"
+            # Seed: "nomad-test-client-key-v1"
             private_key="Q2xpZW50IHByaXZhdGUga2V5IGZvciBSb2FtIHRlc3Rz",
             public_key="Q2xpZW50IHB1YmxpYyBrZXkgZm9yIFJvYW0gdGVzdHM=",
         )
@@ -98,12 +98,12 @@ class TestKeyPairs:
 
 
 class ContainerManager:
-    """Manages Docker containers for Roam protocol testing."""
+    """Manages Docker containers for Nomad protocol testing."""
 
     def __init__(
         self,
         client: DockerClient | None = None,
-        network_name: str = "roam-test-net",
+        network_name: str = "nomad-test-net",
         subnet: str = "172.30.0.0/16",
     ) -> None:
         """Initialize container manager.
@@ -198,7 +198,7 @@ class ContainerManager:
         """
         # Build if no image specified
         if image is None:
-            image = self.build_image(config, tag=f"roam-test-{name}")
+            image = self.build_image(config, tag=f"nomad-test-{name}")
 
         log.info(
             "starting_container",
@@ -361,23 +361,23 @@ class ContainerManager:
             target="server",
             ip_address="172.30.0.10",
             env={
-                "ROAM_MODE": "server",
-                "ROAM_SERVER_PRIVATE_KEY": keypairs.server.private_key,
-                "ROAM_SERVER_PUBLIC_KEY": keypairs.server.public_key,
-                "ROAM_STATE_TYPE": "roam.echo.v1",
-                "ROAM_LOG_LEVEL": "debug",
+                "NOMAD_MODE": "server",
+                "NOMAD_SERVER_PRIVATE_KEY": keypairs.server.private_key,
+                "NOMAD_SERVER_PUBLIC_KEY": keypairs.server.public_key,
+                "NOMAD_STATE_TYPE": "nomad.echo.v1",
+                "NOMAD_LOG_LEVEL": "debug",
             },
         )
 
-        container = self.start_container("roam-test-server", config)
+        container = self.start_container("nomad-test-server", config)
         try:
             if not self.wait_for_health(container, config.health_timeout):
-                logs = self.get_container_logs("roam-test-server")
+                logs = self.get_container_logs("nomad-test-server")
                 log.error("server_health_failed", logs=logs)
                 raise RuntimeError("Server failed health check")
             yield container
         finally:
-            self.stop_container("roam-test-server")
+            self.stop_container("nomad-test-server")
 
     @contextmanager
     def client(
@@ -401,19 +401,19 @@ class ContainerManager:
             target="client",
             ip_address="172.30.0.20",
             env={
-                "ROAM_MODE": "client",
-                "ROAM_SERVER_HOST": server_ip,
-                "ROAM_SERVER_PORT": "19999",
-                "ROAM_SERVER_PUBLIC_KEY": keypairs.server.public_key,
-                "ROAM_LOG_LEVEL": "debug",
+                "NOMAD_MODE": "client",
+                "NOMAD_SERVER_HOST": server_ip,
+                "NOMAD_SERVER_PORT": "19999",
+                "NOMAD_SERVER_PUBLIC_KEY": keypairs.server.public_key,
+                "NOMAD_LOG_LEVEL": "debug",
             },
         )
 
-        container = self.start_container("roam-test-client", config)
+        container = self.start_container("nomad-test-client", config)
         try:
             yield container
         finally:
-            self.stop_container("roam-test-client")
+            self.stop_container("nomad-test-client")
 
 
 class PacketCapture:
@@ -434,7 +434,7 @@ class PacketCapture:
             capture_dir: Directory for capture files. Uses temp dir if None.
         """
         self.manager = manager
-        self.capture_dir = capture_dir or Path("/tmp/roam-capture")
+        self.capture_dir = capture_dir or Path("/tmp/nomad-capture")
         self.capture_dir.mkdir(parents=True, exist_ok=True)
         self._container: Container | None = None
 
@@ -450,10 +450,10 @@ class PacketCapture:
         # Use netshoot image which has tcpdump
         self._container = self.manager.client.containers.run(
             "nicolaka/netshoot:latest",
-            command=f"tcpdump -i {interface} -w /capture/roam.pcap -U {filter_expr}",
-            name="roam-test-tcpdump",
+            command=f"tcpdump -i {interface} -w /capture/nomad.pcap -U {filter_expr}",
+            name="nomad-test-tcpdump",
             detach=True,
-            network_mode=f"container:{self.manager._containers.get('roam-test-server', {}).name}",
+            network_mode=f"container:{self.manager._containers.get('nomad-test-server', {}).name}",
             volumes={str(self.capture_dir): {"bind": "/capture", "mode": "rw"}},
             cap_add=["NET_ADMIN", "NET_RAW"],
         )
@@ -471,7 +471,7 @@ class PacketCapture:
             self._container.remove(force=True)
             self._container = None
 
-        return self.capture_dir / "roam.pcap"
+        return self.capture_dir / "nomad.pcap"
 
     @contextmanager
     def capture(
@@ -488,7 +488,7 @@ class PacketCapture:
         Yields:
             Path to the capture file (available after context exits).
         """
-        capture_file = self.capture_dir / "roam.pcap"
+        capture_file = self.capture_dir / "nomad.pcap"
         self.start(interface, filter_expr)
         try:
             yield capture_file
@@ -517,6 +517,6 @@ def get_container_manager() -> ContainerManager:
         Container manager configured from environment.
     """
     return ContainerManager(
-        network_name=os.environ.get("ROAM_TEST_NETWORK", "roam-test-net"),
-        subnet=os.environ.get("ROAM_TEST_SUBNET", "172.30.0.0/16"),
+        network_name=os.environ.get("NOMAD_TEST_NETWORK", "nomad-test-net"),
+        subnet=os.environ.get("NOMAD_TEST_SUBNET", "172.30.0.0/16"),
     )

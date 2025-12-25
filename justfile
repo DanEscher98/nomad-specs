@@ -1,4 +1,4 @@
-# Roam Protocol Conformance Test Suite
+# Nomad Protocol Conformance Test Suite
 #
 # Commands for running tests and managing Docker infrastructure.
 #
@@ -36,11 +36,11 @@ docker-down:
     docker compose -f docker/docker-compose.yml down -v
 
 # Show container logs
-docker-logs service="roam-server":
+docker-logs service="nomad-server":
     docker compose -f docker/docker-compose.yml logs -f {{ service }}
 
 # Get shell in a container
-docker-shell service="roam-server":
+docker-shell service="nomad-server":
     docker compose -f docker/docker-compose.yml exec {{ service }} /bin/sh
 
 # Check container health
@@ -159,12 +159,12 @@ help-interface:
     @echo "Container Interface:"
     @echo ""
     @echo "Environment Variables:"
-    @echo "  ROAM_MODE=server|client"
-    @echo "  ROAM_SERVER_PRIVATE_KEY=base64"
-    @echo "  ROAM_SERVER_PUBLIC_KEY=base64"
-    @echo "  ROAM_STATE_TYPE=roam.echo.v1"
-    @echo "  ROAM_LOG_LEVEL=debug|info|warn"
+    @echo "  NOMAD_MODE=server|client"
+    @echo "  NOMAD_SERVER_PRIVATE_KEY=base64"
+    @echo "  NOMAD_SERVER_PUBLIC_KEY=base64"
+    @echo "  NOMAD_STATE_TYPE=nomad.echo.v1"
+    @echo "  NOMAD_LOG_LEVEL=debug|info|warn"
     @echo ""
     @echo "Ports:"
-    @echo "  19999/udp - Roam protocol"
+    @echo "  19999/udp - Nomad protocol"
     @echo "  8080/tcp  - Health check (GET /health -> 200 OK)"

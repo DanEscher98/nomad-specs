@@ -2,7 +2,7 @@
 Infrastructure smoke tests.
 
 These tests verify that the test infrastructure itself is working correctly.
-They don't test the Roam protocol - just the testing framework.
+They don't test the Nomad protocol - just the testing framework.
 """
 
 from __future__ import annotations
@@ -67,7 +67,7 @@ class TestInfrastructure:
 
         assert config.dockerfile == "Dockerfile.stub"
         assert config.target == "server"
-        assert config.network == "roam-net"
+        assert config.network == "nomad-net"
         assert config.health_timeout == 30.0
 
     def test_conformance_doc_exists(self):
@@ -78,7 +78,7 @@ class TestInfrastructure:
         content = conformance.read_text()
         assert "Container Interface" in content
         assert "Health Check" in content
-        assert "roam.echo.v1" in content
+        assert "nomad.echo.v1" in content
 
 
 class TestKeyPairIntegrity:

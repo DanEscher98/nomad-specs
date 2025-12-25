@@ -1,4 +1,4 @@
-# Roam Protocol Stub Implementation
+# Nomad Protocol Stub Implementation
 #
 # This is a minimal stub implementation used to test the test infrastructure.
 # It implements just enough to pass health checks and respond to basic probes.
@@ -30,9 +30,9 @@ FROM base AS server
 EXPOSE 19999/udp
 EXPOSE 8080/tcp
 
-ENV ROAM_MODE=server
-ENV ROAM_BIND_ADDR=0.0.0.0:19999
-ENV ROAM_LOG_LEVEL=debug
+ENV NOMAD_MODE=server
+ENV NOMAD_BIND_ADDR=0.0.0.0:19999
+ENV NOMAD_LOG_LEVEL=debug
 
 CMD ["python", "stub_server.py"]
 
@@ -42,7 +42,7 @@ CMD ["python", "stub_server.py"]
 
 FROM base AS client
 
-ENV ROAM_MODE=client
-ENV ROAM_LOG_LEVEL=debug
+ENV NOMAD_MODE=client
+ENV NOMAD_LOG_LEVEL=debug
 
 CMD ["python", "stub_client.py"]

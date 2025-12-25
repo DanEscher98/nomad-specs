@@ -1,8 +1,10 @@
-# Roam Protocol Specs
+# NOMAD Protocol Specs
+
+> **NOMAD** - **N**etwork-**O**ptimized **M**obile **A**pplication **D**atagram
 
 ## Overview
 
-This repository contains **specifications only** for the Roam Protocol, a secure UDP-based state synchronization protocol inspired by Mosh. No actual implementations live here.
+This repository contains **specifications only** for the NOMAD Protocol, a secure UDP-based state synchronization protocol inspired by Mosh. No actual implementations live here.
 
 **This repo contains:**
 - Formal protocol specifications (refined from brainstorm/)
@@ -54,7 +56,7 @@ block-beta
 ## Directory Structure
 
 ```
-roam-specs/
+nomad-specs/
 ├── specs/                    # Formal specifications
 │   ├── PROTOCOL.md           # Core protocol spec
 │   ├── SECURITY.md           # Security layer spec

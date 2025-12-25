@@ -1,12 +1,12 @@
 """
-Roam Protocol Stub Client
+Nomad Protocol Stub Client
 
 A minimal stub client that:
 1. Connects to server via UDP
 2. Sends periodic ping packets
 3. Logs responses
 
-This is NOT a real Roam implementation. It's used to test the
+This is NOT a real Nomad implementation. It's used to test the
 test infrastructure (Docker orchestration, fixtures, etc.).
 """
 
@@ -30,7 +30,7 @@ structlog.configure(
     ],
     wrapper_class=structlog.make_filtering_bound_logger(
         structlog.stdlib.NAME_TO_LEVEL.get(
-            os.environ.get("ROAM_LOG_LEVEL", "debug").lower(), 10
+            os.environ.get("NOMAD_LOG_LEVEL", "debug").lower(), 10
         )
     ),
 )
@@ -41,9 +41,9 @@ class StubClient:
     """Minimal stub client for testing infrastructure."""
 
     def __init__(self) -> None:
-        self.server_host = os.environ.get("ROAM_SERVER_HOST", "127.0.0.1")
-        self.server_port = int(os.environ.get("ROAM_SERVER_PORT", "19999"))
-        self.server_public_key = os.environ.get("ROAM_SERVER_PUBLIC_KEY", "")
+        self.server_host = os.environ.get("NOMAD_SERVER_HOST", "127.0.0.1")
+        self.server_port = int(os.environ.get("NOMAD_SERVER_PORT", "19999"))
+        self.server_public_key = os.environ.get("NOMAD_SERVER_PUBLIC_KEY", "")
         self.running = False
         self.transport: asyncio.DatagramTransport | None = None
         self.packets_sent = 0

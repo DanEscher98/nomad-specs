@@ -1,10 +1,10 @@
-# Roam Protocol Conformance Testing
+# Nomad Protocol Conformance Testing
 
-This document describes how to test your Roam Protocol implementation against the conformance test suite.
+This document describes how to test your Nomad Protocol implementation against the conformance test suite.
 
 ## Overview
 
-The conformance suite validates that your implementation correctly follows the Roam Protocol specification. It tests:
+The conformance suite validates that your implementation correctly follows the Nomad Protocol specification. It tests:
 
 - **Handshake**: Noise_IK key exchange
 - **Transport**: Frame encoding, nonce management, anti-replay
@@ -20,17 +20,17 @@ Your implementation must be packaged as a Docker image with the following interf
 
 ```yaml
 # Environment variables your container must accept:
-ROAM_MODE: server | client
-ROAM_SERVER_PRIVATE_KEY: base64  # Server only
-ROAM_SERVER_PUBLIC_KEY: base64   # Both
-ROAM_STATE_TYPE: string          # e.g., "roam.echo.v1"
-ROAM_LOG_LEVEL: debug | info | warn | error
-ROAM_BIND_ADDR: host:port        # Server only, default 0.0.0.0:19999
-ROAM_SERVER_HOST: hostname       # Client only
-ROAM_SERVER_PORT: port           # Client only
+NOMAD_MODE: server | client
+NOMAD_SERVER_PRIVATE_KEY: base64  # Server only
+NOMAD_SERVER_PUBLIC_KEY: base64   # Both
+NOMAD_STATE_TYPE: string          # e.g., "nomad.echo.v1"
+NOMAD_LOG_LEVEL: debug | info | warn | error
+NOMAD_BIND_ADDR: host:port        # Server only, default 0.0.0.0:19999
+NOMAD_SERVER_HOST: hostname       # Client only
+NOMAD_SERVER_PORT: port           # Client only
 
 # Ports your server must expose:
-19999/udp: Roam protocol
+19999/udp: Nomad protocol
 8080/tcp:  Health check endpoint
 
 # Health check endpoint:
@@ -61,8 +61,8 @@ CMD ["your-client-binary"]
 
 ```bash
 # Clone the specs repo
-git clone https://github.com/your-org/roam-specs.git
-cd roam-specs
+git clone https://github.com/your-org/nomad-specs.git
+cd nomad-specs
 
 # Point to your implementation
 export SERVER_CONTEXT=/path/to/your/implementation
@@ -95,11 +95,11 @@ The health endpoint SHOULD return 200 only when:
 
 #### UDP Protocol Port
 
-The server MUST listen on UDP port 19999 for Roam protocol traffic.
+The server MUST listen on UDP port 19999 for Nomad protocol traffic.
 
 #### Logging
 
-When `ROAM_LOG_LEVEL=debug`, log:
+When `NOMAD_LOG_LEVEL=debug`, log:
 - All received packets (hex dump first 32 bytes)
 - All sent packets (hex dump first 32 bytes)
 - Handshake progress
@@ -111,13 +111,13 @@ When `ROAM_LOG_LEVEL=debug`, log:
 #### Server Connection
 
 The client MUST:
-1. Read `ROAM_SERVER_HOST` and `ROAM_SERVER_PORT` from environment
-2. Use `ROAM_SERVER_PUBLIC_KEY` for handshake
+1. Read `NOMAD_SERVER_HOST` and `NOMAD_SERVER_PORT` from environment
+2. Use `NOMAD_SERVER_PUBLIC_KEY` for handshake
 3. Initiate Noise_IK handshake on startup
 
-### State Type: roam.echo.v1
+### State Type: nomad.echo.v1
 
-For conformance testing, implement the `roam.echo.v1` state type:
+For conformance testing, implement the `nomad.echo.v1` state type:
 
 ```
 State: UTF-8 string (max 1024 bytes)
@@ -151,7 +151,7 @@ Behavioral tests using containers:
 - Handshake establishment
 - State synchronization
 - Rekeying
-- Roaming (IP change)
+- Nomading (IP change)
 
 Run with: `just test-protocol`
 
@@ -228,10 +228,10 @@ uv run pytest -n auto tests/
 
 ```bash
 # Get server logs
-docker logs roam-test-server
+docker logs nomad-test-server
 
 # Get client logs
-docker logs roam-test-client
+docker logs nomad-test-client
 ```
 
 ### Packet Capture
@@ -254,10 +254,10 @@ def test_with_capture(packet_capture, server_container):
 docker compose -f docker/docker-compose.yml up -d
 
 # Exec into server
-docker exec -it roam-server /bin/sh
+docker exec -it nomad-server /bin/sh
 
 # Watch traffic
-docker exec roam-tcpdump tcpdump -i eth0 -X udp port 19999
+docker exec nomad-tcpdump tcpdump -i eth0 -X udp port 19999
 ```
 
 ## Common Issues

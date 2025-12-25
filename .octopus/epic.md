@@ -1,8 +1,8 @@
-# Epic: Roam Protocol Conformance Suite
+# Epic: Nomad Protocol Conformance Suite
 
 ## Goal
 
-Build a plug & play E2E conformance test suite that validates any Roam protocol implementation (Rust, Go, etc.) against the specification.
+Build a plug & play E2E conformance test suite that validates any Nomad protocol implementation (Rust, Go, etc.) against the specification.
 
 ## Acceptance Criteria
 
@@ -10,7 +10,7 @@ Build a plug & play E2E conformance test suite that validates any Roam protocol 
 - [ ] Python reference codec implements full protocol (handshake, frames, sync)
 - [ ] Test vectors generated from reference libs (JSON5 with comments)
 - [ ] Unit tests validate frame encoding/decoding
-- [ ] Protocol tests validate handshake, rekeying, roaming
+- [ ] Protocol tests validate handshake, rekeying, nomading
 - [ ] Wire tests validate byte-level format compliance
 - [ ] Adversarial tests validate security properties
 - [ ] Specs are isomorphic to tests (each spec section maps to test cases)
