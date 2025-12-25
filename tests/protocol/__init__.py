@@ -1,1 +1,1 @@
-"""Protocol-level tests for NOMAD handshake and session management."""
+"""Protocol-level tests for NOMAD sync layer and handshake/session management."""
