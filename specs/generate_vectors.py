@@ -520,6 +520,184 @@ def generate_nonce_vectors() -> dict[str, Any]:
     return vectors
 
 
+def generate_sync_vectors() -> dict[str, Any]:
+    """Generate sync layer test vectors.
+
+    These vectors test:
+    - Sync message encoding/decoding
+    - State version tracking
+    - Ack-only messages
+    - Full sync sessions
+    """
+    vectors = {
+        "_metadata": {
+            "description": "Sync layer test vectors for NOMAD v1.0",
+            "generated": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "generator": "specs/generate_vectors.py",
+            "protocol_version": NOMAD_VERSION,
+        },
+        "_notes": [
+            "All integers are little-endian",
+            "Sync message header: sender(8) + acked(8) + base(8) + diff_len(4) = 28 bytes",
+            "Diff payload is application-defined, here we use simple ASCII for testing",
+        ],
+        "sync_messages": [],
+        "convergence_scenarios": [],
+    }
+
+    # Basic sync message vectors
+    sync_cases = [
+        {
+            "name": "initial_state",
+            "description": "First sync message from initiator (state 1, acking nothing)",
+            "sender_state_num": 1,
+            "acked_state_num": 0,
+            "base_state_num": 0,
+            "diff_ascii": "initial state",
+        },
+        {
+            "name": "normal_sync",
+            "description": "Normal sync with state update and ack",
+            "sender_state_num": 5,
+            "acked_state_num": 3,
+            "base_state_num": 4,
+            "diff_ascii": "state delta",
+        },
+        {
+            "name": "ack_only",
+            "description": "Ack-only message (no state change, empty diff)",
+            "sender_state_num": 10,
+            "acked_state_num": 10,
+            "base_state_num": 0,
+            "diff_ascii": "",
+        },
+        {
+            "name": "large_version_numbers",
+            "description": "Large version numbers (near max uint64)",
+            "sender_state_num": 0xFFFFFFFFFFFF,  # 48-bit max (realistic)
+            "acked_state_num": 0xFFFFFFFFFFFE,
+            "base_state_num": 0xFFFFFFFFFFFD,
+            "diff_ascii": "big",
+        },
+        {
+            "name": "binary_diff",
+            "description": "Sync with binary diff payload (not ASCII)",
+            "sender_state_num": 100,
+            "acked_state_num": 99,
+            "base_state_num": 99,
+            "diff_hex": "deadbeef00112233",  # Binary data
+        },
+        {
+            "name": "empty_initial",
+            "description": "Empty initial state (all zeros except sender=1)",
+            "sender_state_num": 1,
+            "acked_state_num": 0,
+            "base_state_num": 0,
+            "diff_ascii": "",
+        },
+        {
+            "name": "retransmit_scenario",
+            "description": "Retransmit of state 5 (ack moved forward)",
+            "sender_state_num": 5,
+            "acked_state_num": 7,
+            "base_state_num": 4,
+            "diff_ascii": "retransmit",
+        },
+    ]
+
+    for case in sync_cases:
+        if "diff_hex" in case:
+            diff = bytes.fromhex(case["diff_hex"])
+            diff_repr = {"hex": case["diff_hex"]}
+        else:
+            diff = case["diff_ascii"].encode("utf-8")
+            diff_repr = {"ascii": case["diff_ascii"], "hex": diff.hex()}
+
+        encoded = encode_sync_message(
+            case["sender_state_num"],
+            case["acked_state_num"],
+            case["base_state_num"],
+            diff,
+        )
+
+        vectors["sync_messages"].append({
+            "name": case["name"],
+            "description": case["description"],
+            "sender_state_num": case["sender_state_num"],
+            "acked_state_num": case["acked_state_num"],
+            "base_state_num": case["base_state_num"],
+            "diff": diff_repr,
+            "diff_length": len(diff),
+            "encoded": encoded.hex(),
+            "encoded_length": len(encoded),
+        })
+
+    # Convergence scenarios - multi-message sequences
+    # Scenario 1: Normal exchange
+    scenario1_messages = [
+        ("A->B", 1, 0, 0, "hello"),       # A sends initial
+        ("B->A", 1, 1, 0, "world"),        # B sends initial, acks A's 1
+        ("A->B", 2, 1, 1, "update1"),      # A updates, acks B's 1
+        ("B->A", 2, 2, 1, "update2"),      # B updates, acks A's 2
+    ]
+
+    scenario1 = {
+        "name": "normal_convergence",
+        "description": "Normal sync convergence between two peers",
+        "messages": [],
+    }
+
+    for direction, sender, acked, base, diff_text in scenario1_messages:
+        diff = diff_text.encode("utf-8")
+        encoded = encode_sync_message(sender, acked, base, diff)
+        scenario1["messages"].append({
+            "direction": direction,
+            "sender_state_num": sender,
+            "acked_state_num": acked,
+            "base_state_num": base,
+            "diff_ascii": diff_text,
+            "encoded": encoded.hex(),
+        })
+
+    vectors["convergence_scenarios"].append(scenario1)
+
+    # Scenario 2: Packet loss and recovery
+    scenario2 = {
+        "name": "packet_loss_recovery",
+        "description": "Recovery from lost packets (idempotent diffs)",
+        "messages": [],
+        "notes": [
+            "Message 2 is lost in transit",
+            "Peer retransmits and receiver handles idempotently",
+        ],
+    }
+
+    scenario2_messages = [
+        ("A->B", 1, 0, 0, "msg1", "delivered"),
+        ("A->B", 2, 0, 1, "msg2", "LOST"),
+        ("A->B", 3, 0, 2, "msg3", "delivered"),  # B receives 3, skips 2
+        ("B->A", 1, 3, 0, "ack", "delivered"),   # B acks 3
+        ("A->B", 3, 1, 2, "msg3", "retransmit"), # A retransmits 3 (idempotent)
+    ]
+
+    for direction, sender, acked, base, diff_text, status in scenario2_messages:
+        diff = diff_text.encode("utf-8")
+        encoded = encode_sync_message(sender, acked, base, diff)
+        scenario2["messages"].append({
+            "direction": direction,
+            "sender_state_num": sender,
+            "acked_state_num": acked,
+            "base_state_num": base,
+            "diff_ascii": diff_text,
+            "status": status,
+            "encoded": encoded.hex(),
+        })
+
+    vectors["convergence_scenarios"].append(scenario2)
+
+    return vectors
+
+
 def generate_handshake_vectors() -> dict[str, Any]:
     """Generate handshake test vectors.
 
@@ -640,9 +818,12 @@ def main():
     handshake_vectors = generate_handshake_vectors()
     write_json5(handshake_vectors, VECTORS_DIR / "handshake_vectors.json5")
 
+    sync_vectors = generate_sync_vectors()
+    write_json5(sync_vectors, VECTORS_DIR / "sync_vectors.json5")
+
     print()
     print("=" * 60)
-    print(f"Generated {4} vector files in {VECTORS_DIR}")
+    print(f"Generated {5} vector files in {VECTORS_DIR}")
     print()
     print("To verify idempotency, run again - output should be identical.")
     print("(Except for _metadata.generated timestamp)")
