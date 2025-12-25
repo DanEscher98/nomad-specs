@@ -7,6 +7,8 @@
 | t1-security | Security layer spec + tests | specs/1-SECURITY.md, tests/unit/test_crypto* | .worktrees/t1-security |
 | t2-transport | Transport layer spec + tests | specs/2-TRANSPORT.md, tests/unit/test_frame* | .worktrees/t2-transport |
 | t3-sync | Sync layer spec + tests | specs/3-SYNC.md, tests/protocol/test_sync* | .worktrees/t3-sync |
+| t7-resilience | Network stress testing | tests/resilience/*, tests/lib/chaos.py | .worktrees/t7-resilience |
+| t8-adversarial | Security red team testing | tests/adversarial/*, tests/lib/attacker.py | .worktrees/t8-adversarial |
 
 ## Pending Tentacles
 
