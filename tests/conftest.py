@@ -20,6 +20,12 @@ from typing import TYPE_CHECKING
 import pytest
 import structlog
 
+from lib.attacker import (
+    MITMAttacker,
+    SessionProbe,
+    TimingAnalyzer,
+    create_attacker,
+)
 from lib.containers import (
     ContainerConfig,
     ContainerManager,
@@ -159,6 +165,65 @@ def packet_capture(
         capture_dir=tmp_path / "capture",
     )
     yield capture
+
+
+# =============================================================================
+# Adversarial testing fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def attacker() -> Iterator[MITMAttacker]:
+    """MITM attacker for adversarial tests.
+
+    Provides an MITMAttacker instance configured for the test network.
+    Used for replay attacks, injection, tampering, etc.
+
+    Note: Requires NET_RAW/NET_ADMIN capabilities for packet capture.
+    Tests using this fixture should be marked with @pytest.mark.adversarial.
+
+    Yields:
+        MITMAttacker: Configured attacker instance.
+    """
+    attacker_instance = create_attacker(
+        interface=os.environ.get("NOMAD_TEST_INTERFACE", "eth0"),
+        target_ip=os.environ.get("NOMAD_TEST_SERVER_IP", "172.31.0.10"),
+        target_port=19999,
+    )
+    yield attacker_instance
+    # Reset stats after each test
+    attacker_instance.reset_stats()
+
+
+@pytest.fixture
+def timing_analyzer() -> Iterator[TimingAnalyzer]:
+    """Timing analyzer for traffic analysis tests.
+
+    Provides a TimingAnalyzer instance for measuring inter-frame
+    arrival times and correlating with known patterns.
+
+    Yields:
+        TimingAnalyzer: Fresh analyzer instance.
+    """
+    analyzer = TimingAnalyzer()
+    yield analyzer
+    analyzer.clear()
+
+
+@pytest.fixture
+def session_probe(attacker: MITMAttacker) -> SessionProbe:
+    """Session probe for session enumeration tests.
+
+    Provides a SessionProbe instance for testing session ID
+    predictability and enumeration vulnerabilities.
+
+    Args:
+        attacker: MITM attacker fixture.
+
+    Returns:
+        SessionProbe: Configured probe instance.
+    """
+    return SessionProbe(attacker)
 
 
 # =============================================================================

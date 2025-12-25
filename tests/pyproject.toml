@@ -11,25 +11,19 @@ dependencies = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
     "pytest-timeout>=2.2",
-    "pytest-xdist>=3.5",  # parallel test execution
-
+    "pytest-xdist>=3.5", # parallel test execution
     # Property-based testing
     "hypothesis>=6.92",
-
     # Container orchestration
     "docker>=7.0",
     "python-dotenv>=1.0",
-
     # Packet inspection (scapy)
     "scapy>=2.5",
-
     # Reference implementation dependencies (crypto)
     "cryptography>=42.0",
     "pynacl>=1.5",
-
     # JSON5 for test vectors with comments
     "json5>=0.9",
-
     # Utilities
     "attrs>=23.0",
     "structlog>=24.0",
@@ -79,3 +73,8 @@ python_version = "3.11"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.10",
+]
