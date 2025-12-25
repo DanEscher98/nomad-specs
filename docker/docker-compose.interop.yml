@@ -35,7 +35,7 @@ services:
       - "19001:19999/udp"
       - "8001:8080"
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/health"]
       interval: 1s
       timeout: 1s
       retries: 30
@@ -84,7 +84,7 @@ services:
       - "19002:19999/udp"
       - "8002:8080"
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/health"]
       interval: 1s
       timeout: 1s
       retries: 30

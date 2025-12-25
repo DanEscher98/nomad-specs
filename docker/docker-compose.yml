@@ -42,7 +42,7 @@ services:
       - "19999:19999/udp"
       - "8080:8080"
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/health"]
       interval: 1s
       timeout: 1s
       retries: 30

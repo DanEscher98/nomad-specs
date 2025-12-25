@@ -13,8 +13,10 @@ FROM python:3.11-slim AS base
 
 WORKDIR /app
 
-# Install minimal dependencies
-RUN pip install --no-cache-dir aiohttp structlog
+# Install curl for health checks and Python dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir aiohttp structlog
 
 # Copy stub implementation
 COPY stub/ /app/
