@@ -46,12 +46,12 @@ Initiator → Responder
 
 ```mermaid
 packet
-  +8: "Type 0x01"
-  +8: "Reserved"
-  +16: "Protocol Version"
-  +256: "Initiator Ephemeral Public Key (32 bytes)"
-  +384: "Encrypted Initiator Static (32 + 16 tag)"
-  +128: "Encrypted Payload (min 16 tag)"
+  +1: "Type 0x01"
+  +1: "Reserved"
+  +2: "Protocol Version"
+  +32: "Initiator Ephemeral Public Key (32 bytes)"
+  +48: "Encrypted Initiator Static (32 + 16 tag)"
+  +var: "Encrypted Payload (min 16 tag)"
 ```
 
 | Field | Offset | Size | Description |
