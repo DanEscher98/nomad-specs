@@ -3,6 +3,21 @@
 
 **Scope:** tests/resilience/*, tests/lib/chaos.py, docker/docker-compose.yml
 
+---
+
+## ⚠️ E2E Only - Docker Required
+
+> This tentacle has **NO Phase 1 (unit tests)**.
+> All tests require Docker containers with real implementations.
+> Tests use `server_container`, `client_container`, and `chaos` fixtures.
+
+**Prerequisites:**
+- Docker with tc/netem support
+- Test keypairs configured in `tests/lib/containers.py`
+- Use `container_manager.check_container_health()` to detect crashes
+
+---
+
 ## Tasks
 
 ### Infrastructure
