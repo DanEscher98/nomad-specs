@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 import pytest
 import structlog
 
+from lib.chaos import NetworkChaos
 from lib.containers import (
     ContainerConfig,
     ContainerManager,
@@ -161,6 +162,35 @@ def packet_capture(
     yield capture
 
 
+@pytest.fixture
+def chaos(
+    container_manager: ContainerManager,
+) -> Iterator[NetworkChaos]:
+    """Network chaos injection for resilience tests.
+
+    Provides a NetworkChaos instance for applying network conditions
+    using pumba and tc/netem.
+
+    Yields:
+        NetworkChaos: Chaos controller for applying network conditions.
+
+    Example:
+        def test_packet_loss(chaos, server_container, client_container):
+            with chaos.apply_loss("nomad-test-client", percent=30):
+                # Test with 30% packet loss
+                pass
+    """
+    network_chaos = NetworkChaos(
+        client=container_manager.client,
+        network_name=container_manager.network_name,
+    )
+
+    yield network_chaos
+
+    # Cleanup any remaining chaos operations
+    network_chaos.cleanup_all()
+
+
 # =============================================================================
 # Configuration fixtures
 # =============================================================================
@@ -239,18 +269,11 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
     )
-    config.addinivalue_line(
-        "markers", "container: tests requiring docker containers"
-    )
-    config.addinivalue_line(
-        "markers", "network: tests requiring network access"
-    )
-    config.addinivalue_line(
-        "markers", "adversarial: security/fuzzing tests"
-    )
-    config.addinivalue_line(
-        "markers", "interop: cross-implementation tests"
-    )
+    config.addinivalue_line("markers", "container: tests requiring docker containers")
+    config.addinivalue_line("markers", "network: tests requiring network access")
+    config.addinivalue_line("markers", "adversarial: security/fuzzing tests")
+    config.addinivalue_line("markers", "interop: cross-implementation tests")
+    config.addinivalue_line("markers", "resilience: network stress and chaos tests")
 
 
 def pytest_collection_modifyitems(config, items):

@@ -134,6 +134,119 @@ services:
     profiles:
       - chaos-loss
 
+  # 30% packet loss profile
+  chaos-loss-30:
+    image: gaiaadm/pumba:latest
+    container_name: nomad-chaos-loss-30
+    command: >
+      netem
+      --duration 300s
+      --tc-image gaiadocker/iproute2
+      loss
+      --percent 30
+      nomad-client
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - nomad-client
+    profiles:
+      - chaos-loss-30
+
+  # 50% packet loss profile (critical test threshold)
+  chaos-loss-50:
+    image: gaiaadm/pumba:latest
+    container_name: nomad-chaos-loss-50
+    command: >
+      netem
+      --duration 300s
+      --tc-image gaiadocker/iproute2
+      loss
+      --percent 50
+      nomad-client
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - nomad-client
+    profiles:
+      - chaos-loss-50
+
+  # Packet reordering profile
+  chaos-reorder:
+    image: gaiaadm/pumba:latest
+    container_name: nomad-chaos-reorder
+    command: >
+      netem
+      --duration 300s
+      --tc-image gaiadocker/iproute2
+      delay
+      --time 10
+      --reorder-percent 25
+      --reorder-gap 5
+      nomad-client
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - nomad-client
+    profiles:
+      - chaos-reorder
+
+  # Packet duplication profile
+  chaos-duplicate:
+    image: gaiaadm/pumba:latest
+    container_name: nomad-chaos-duplicate
+    command: >
+      netem
+      --duration 300s
+      --tc-image gaiadocker/iproute2
+      duplicate
+      --percent 20
+      nomad-client
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - nomad-client
+    profiles:
+      - chaos-duplicate
+
+  # High latency profile (500ms)
+  chaos-latency-500:
+    image: gaiaadm/pumba:latest
+    container_name: nomad-chaos-latency-500
+    command: >
+      netem
+      --duration 300s
+      --tc-image gaiadocker/iproute2
+      delay
+      --time 500
+      --jitter 50
+      nomad-client
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - nomad-client
+    profiles:
+      - chaos-latency-500
+
+  # High jitter profile (±300ms)
+  chaos-jitter-extreme:
+    image: gaiaadm/pumba:latest
+    container_name: nomad-chaos-jitter-extreme
+    command: >
+      netem
+      --duration 300s
+      --tc-image gaiadocker/iproute2
+      delay
+      --time 100
+      --jitter 300
+      --distribution normal
+      nomad-client
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - nomad-client
+    profiles:
+      - chaos-jitter-extreme
+
 # ===========================================================================
 # Networks
 # ===========================================================================
