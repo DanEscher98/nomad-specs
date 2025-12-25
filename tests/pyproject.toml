@@ -79,3 +79,8 @@ python_version = "3.11"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.10",
+]

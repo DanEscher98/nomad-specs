@@ -54,11 +54,83 @@
   - [x] Session continuity
   - [x] Security properties
 
+---
+
+## Phase 2: E2E Tests (DOCKER REQUIRED)
+
+**Status:** COMPLETE
+
+> Phase 1 tests validate the Python reference codec against test vectors.
+> Phase 2 tests validate real implementations in Docker containers.
+
+**Prerequisites:**
+- Use fixtures from `tests/conftest.py`: `server_container`, `client_container`, `packet_capture`
+- Container management via `tests/lib/containers.py` (ContainerManager)
+- Network utilities via `tests/lib/network.py` (scapy helpers)
+- Test keypairs configured in `tests/lib/containers.py`
+- Use `container_manager.wait_for_health()` to detect crashes
+- Mark tests with `@pytest.mark.container`
+
+### E2E Wire Tests
+- [x] `test_wire_format_e2e.py` - Capture real packets from containers
+  - [x] Verify header size (16 bytes)
+  - [x] Verify type byte offset (0)
+  - [x] Verify flags byte offset (1)
+  - [x] Verify session ID offset (2-7)
+  - [x] Verify nonce counter offset (8-15, LE64)
+  - [x] Verify frame header is plaintext (session ID visible)
+  - [x] MTU compliance tests
+  - [x] Traffic pattern validation (bidirectional, consistent session ID, nonce increases)
+- [x] `test_wire_malformed_e2e.py` - Send malformed packets to real server
+  - [x] Truncated frame handling (empty, single byte, header-only, partial tag)
+  - [x] Invalid type byte rejection
+  - [x] Invalid AEAD tag rejection (corrupted, zeroed, random)
+  - [x] Unknown session ID rejection
+  - [x] Fuzz testing with random data
+  - [x] Header corruption (AAD modification)
+  - [x] Flood resistance
+
+### E2E Protocol Tests
+- [x] `test_keepalive_e2e.py` - Keepalive mechanism with real containers
+  - [x] Keepalive is Data frame (type 0x03)
+  - [x] ACK_ONLY flag set
+  - [x] Minimal frame size (empty diff)
+  - [x] Session survives idle periods
+  - [x] Bidirectional traffic validation
+  - [x] Timestamp/nonce increase validation
+  - [x] Connection health checks
+- [x] `test_nomad_e2e.py` - IP migration/roaming with real containers
+  - [x] Session ID continuity
+  - [x] Nonce counter continuity
+  - [x] Session survives short interruption
+  - [x] Invalid migration attempts rejected
+  - [x] Anti-amplification (3x limit) enforcement
+  - [x] Migration security properties
+
+### Adversarial Tests
+- [x] `test_transport_attacks.py` - Security attack testing
+  - [x] Frame injection attacks (forged frames, corrupted tags)
+  - [x] Session ID enumeration (random probes, sequential scan)
+  - [x] Nonce manipulation (replay window, large/zero counters)
+  - [x] Amplification attacks (spoofed source, limited response)
+  - [x] Replay attacks (duplicate frames)
+  - [x] Header manipulation (flags, type downgrade)
+  - [x] Fuzz testing (random data, all byte values, structured fuzz)
+  - [x] Resource exhaustion (rapid flood, large frames, many session IDs)
+
 ## Test Summary
-- **Total Tests:** 201
+- **Total Phase 1 Tests:** 201
 - **Unit tests:** 84
 - **Wire tests:** 79
 - **Protocol tests:** 38
+
+**Phase 2 E2E Tests (NEW):**
+- **Wire E2E:** ~20 tests
+- **Malformed E2E:** ~25 tests
+- **Keepalive E2E:** ~12 tests
+- **Nomad E2E:** ~15 tests
+- **Adversarial:** ~30 tests
+- **Total Phase 2:** ~100+ tests
 
 ## Dependencies
 - `tests/lib/reference.py` from t6-vectors (AVAILABLE)
