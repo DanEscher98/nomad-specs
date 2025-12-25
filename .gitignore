@@ -45,3 +45,6 @@ build/
 # Temp
 *.tmp
 *.bak
+
+# Octopus tentacle worktrees
+.worktrees/

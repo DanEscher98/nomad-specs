@@ -1,0 +1,154 @@
+# Nomad Protocol Conformance Test Infrastructure
+#
+# This compose file supports plugging in any Nomad implementation.
+# Set SERVER_CONTEXT/SERVER_DOCKERFILE and CLIENT_CONTEXT/CLIENT_DOCKERFILE
+# to point to your implementation's build context.
+#
+# Default: Uses the stub implementation (docker/Dockerfile.stub) for testing
+# the test infrastructure itself.
+#
+# Usage:
+#   # Run with stub implementation
+#   docker compose up -d
+#
+#   # Run with external implementation
+#   SERVER_CONTEXT=/path/to/impl SERVER_DOCKERFILE=Dockerfile docker compose up -d
+#
+#   # Run with network chaos
+#   docker compose --profile chaos up -d
+
+services:
+  # ===========================================================================
+  # Core Services
+  # ===========================================================================
+
+  nomad-server:
+    build:
+      context: ${SERVER_CONTEXT:-.}
+      dockerfile: ${SERVER_DOCKERFILE:-Dockerfile.stub}
+      target: ${SERVER_TARGET:-server}
+    container_name: nomad-server
+    environment:
+      - NOMAD_MODE=server
+      - NOMAD_SERVER_PRIVATE_KEY=${SERVER_PRIVATE_KEY:-}
+      - NOMAD_SERVER_PUBLIC_KEY=${SERVER_PUBLIC_KEY:-}
+      - NOMAD_STATE_TYPE=${STATE_TYPE:-nomad.echo.v1}
+      - NOMAD_LOG_LEVEL=${LOG_LEVEL:-debug}
+      - NOMAD_BIND_ADDR=0.0.0.0:19999
+    networks:
+      nomad-net:
+        ipv4_address: 172.28.0.10
+    ports:
+      - "19999:19999/udp"
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/health"]
+      interval: 1s
+      timeout: 1s
+      retries: 30
+      start_period: 5s
+    restart: unless-stopped
+
+  nomad-client:
+    build:
+      context: ${CLIENT_CONTEXT:-.}
+      dockerfile: ${CLIENT_DOCKERFILE:-Dockerfile.stub}
+      target: ${CLIENT_TARGET:-client}
+    container_name: nomad-client
+    environment:
+      - NOMAD_MODE=client
+      - NOMAD_SERVER_HOST=172.28.0.10
+      - NOMAD_SERVER_PORT=19999
+      - NOMAD_SERVER_PUBLIC_KEY=${SERVER_PUBLIC_KEY:-}
+      - NOMAD_LOG_LEVEL=${LOG_LEVEL:-debug}
+    networks:
+      nomad-net:
+        ipv4_address: 172.28.0.20
+    depends_on:
+      nomad-server:
+        condition: service_healthy
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+
+  # ===========================================================================
+  # Observability Sidecars
+  # ===========================================================================
+
+  # Packet capture for wire-level tests
+  tcpdump:
+    image: nicolaka/netshoot:latest
+    container_name: nomad-tcpdump
+    command: >
+      tcpdump -i eth0 -w /capture/nomad.pcap
+      -U
+      udp port 19999 or tcp port 8080
+    network_mode: "service:nomad-server"
+    volumes:
+      - ./capture:/capture
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    depends_on:
+      - nomad-server
+    profiles:
+      - capture
+
+  # ===========================================================================
+  # Network Chaos (for resilience testing)
+  # ===========================================================================
+
+  # Introduce network delays, packet loss, etc.
+  chaos-delay:
+    image: gaiaadm/pumba:latest
+    container_name: nomad-chaos-delay
+    command: >
+      netem
+      --duration 300s
+      --tc-image gaiadocker/iproute2
+      delay
+      --time 100
+      --jitter 50
+      nomad-client
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - nomad-client
+    profiles:
+      - chaos
+
+  chaos-loss:
+    image: gaiaadm/pumba:latest
+    container_name: nomad-chaos-loss
+    command: >
+      netem
+      --duration 300s
+      --tc-image gaiadocker/iproute2
+      loss
+      --percent 10
+      nomad-client
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - nomad-client
+    profiles:
+      - chaos-loss
+
+# ===========================================================================
+# Networks
+# ===========================================================================
+
+networks:
+  nomad-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+# ===========================================================================
+# Volumes
+# ===========================================================================
+
+volumes:
+  capture:
+    driver: local

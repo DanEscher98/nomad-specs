@@ -1,8 +1,10 @@
-# Roam Protocol Specs
+# NOMAD Protocol Specs
+
+> **NOMAD** - **N**etwork-**O**ptimized **M**obile **A**pplication **D**atagram
 
 ## Overview
 
-This repository contains **specifications only** for the Roam Protocol, a secure UDP-based state synchronization protocol inspired by Mosh. No actual implementations live here.
+This repository contains **specifications only** for the NOMAD Protocol, a secure UDP-based state synchronization protocol inspired by Mosh. No actual implementations live here.
 
 **This repo contains:**
 - Formal protocol specifications (refined from brainstorm/)
@@ -17,24 +19,22 @@ This repository contains **specifications only** for the Roam Protocol, a secure
 
 ## Architecture Layers
 
-```
-┌─────────────────────────────────────────────────┐
-│ EXTENSIONS (compression, scrollback, etc.)      │
-├─────────────────────────────────────────────────┤
-│ STATE LAYER (application-specific, e.g. Term)   │
-├─────────────────────────────────────────────────┤
-│ SYNC LAYER - versioning, diffs, convergence     │
-├─────────────────────────────────────────────────┤
-│ TRANSPORT LAYER - UDP, framing, migration       │
-├─────────────────────────────────────────────────┤
-│ SECURITY LAYER - Noise_IK, XChaCha20-Poly1305   │
-└─────────────────────────────────────────────────┘
+```mermaid
+block-beta
+  columns 1
+  app["APPLICATION: MoshiMoshi • Future Apps (Whiteboard, Game)"]
+  state["STATE LAYER: Application-defined impl SyncState"]
+  ext["EXTENSIONS: compression (zstd) • scrollback • prediction"]
+  sync["SYNC LAYER: versioning • idempotent diffs • convergence"]
+  transport["TRANSPORT: frames • session ID • nonce • keepalive"]
+  security["SECURITY: Noise_IK • XChaCha20-Poly1305 • BLAKE2s"]
+  udp["UDP: unreliable datagrams"]
 ```
 
 ## Directory Structure
 
 ```
-roam-specs/
+nomad-specs/
 ├── specs/                    # Formal specifications
 │   ├── PROTOCOL.md           # Core protocol spec
 │   ├── SECURITY.md           # Security layer spec
@@ -46,16 +46,17 @@ roam-specs/
 │   ├── pyproject.toml
 │   ├── conftest.py           # pytest fixtures
 │   │
-│   ├── vectors/              # Static test vectors (JSON)
-│   │   ├── handshake_vectors.json
-│   │   ├── frame_vectors.json
-│   │   └── sync_vectors.json
+│   ├── vectors/              # Static test vectors (JSON5)
+│   │   ├── handshake_vectors.json5
+│   │   ├── frame_vectors.json5
+│   │   └── sync_vectors.json5
 │   │
-│   ├── unit/                 # Pure logic tests
-│   ├── protocol/             # Protocol behavior tests
-│   ├── wire/                 # Byte-level validation
+│   ├── unit/                 # Pure logic tests (all implementations)
+│   ├── protocol/             # Protocol behavior tests (all implementations)
+│   ├── wire/                 # Byte-level validation (all implementations)
 │   ├── interop/              # Cross-implementation tests
-│   ├── adversarial/          # Security tests
+│   ├── adversarial/          # Security tests (all implementations)
+│   ├── terminal/             # Terminal-specific tests (terminal impls only)
 │   │
 │   └── lib/                  # Test utilities
 │       ├── containers.py     # Docker management
@@ -74,7 +75,7 @@ roam-specs/
 
 ## Tech Stack
 
-- **Specs**: Markdown with ASCII diagrams
+- **Specs**: Markdown with Mermaid diagrams (renders on GitHub)
 - **Test Suite**: Python 3.11+
   - pytest (test runner)
   - hypothesis (property-based testing)
@@ -82,6 +83,46 @@ roam-specs/
   - docker (container orchestration)
 - **Dependency Management**: uv
 - **Containers**: Docker Compose
+
+## Diagram Conventions
+
+Use **Mermaid** for all diagrams (renders natively on GitHub):
+
+- **Architecture/Flow**: `block-beta` or `flowchart`
+- **Packet formats**: `packet` diagram (v11.0.0+)
+- **State machines**: `stateDiagram-v2`
+- **Sequences**: `sequenceDiagram`
+
+### Packet Diagram Example
+
+For protocol packet formats in specs, use Mermaid `packet` diagrams with `+<count>` syntax:
+
+```mermaid
+packet
+  +8: "Type"
+  +8: "Flags"
+  +48: "Session ID (6 bytes)"
+  +64: "Nonce Counter (8 bytes)"
+  +64: "Encrypted Payload..."
+```
+
+The `+<count>` specifies bits per field. This renders cleanly on GitHub.
+
+## Test Categories
+
+Tests are organized so implementations can validate core protocol vs state-specific behavior:
+
+| Category | Path | Required For | Description |
+|----------|------|--------------|-------------|
+| Unit | `tests/unit/` | All | Pure logic tests (encoding, crypto) |
+| Protocol | `tests/protocol/` | All | Protocol behavior (handshake, sync, rekey) |
+| Wire | `tests/wire/` | All | Byte-level format compliance |
+| Adversarial | `tests/adversarial/` | All | Security tests (replay, malformed) |
+| Terminal | `tests/terminal/` | Terminal only | Scrollback, prediction, terminal state |
+| Interop | `tests/interop/` | Optional | Cross-implementation testing |
+
+**Run core tests:** `just test-core` (excludes terminal/)
+**Run all tests:** `just test` (includes terminal/)
 
 ## Octopus Tentacle Breakdown
 
@@ -105,21 +146,22 @@ roam-specs/
 
 ## Test Vector Strategy
 
-Vectors are **generated using reference libraries**, not hand-crafted:
+Vectors are **generated using reference libraries**, stored as **JSON5** (supports comments):
 
 ```
 specs/
 ├── PROTOCOL.md              # Human-readable spec
-└── generate_vectors.py      # Executable spec
+└── generate_vectors.py      # Executable spec (idempotent)
 
 tests/vectors/
-├── handshake_vectors.json   # Generated from snow + test keypairs
-├── frame_vectors.json       # Generated from cryptography lib
+├── handshake_vectors.json5  # Generated from snow + test keypairs
+├── frame_vectors.json5      # Generated from cryptography lib
 └── README.md                # Documents derivation of each vector
 ```
 
+- **JSON5 format**: Allows inline comments explaining each field
+- **Idempotent generation**: Running twice produces identical output (reproducibility)
 - Use `snow` (Noise protocol) and `cryptography` (XChaCha20-Poly1305) as reference
-- Generation scripts are idempotent (regenerating produces identical output)
 - Each vector includes metadata explaining its derivation
 - No magic numbers: every value traceable to spec + reference lib
 
