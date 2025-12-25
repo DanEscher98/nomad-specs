@@ -1,0 +1,7 @@
+tentacle_id: t7-resilience
+description: "Network stress and resilience testing"
+branch: tentacle/t7-resilience
+scope: "tests/resilience/*, tests/lib/chaos.py, docker/docker-compose.yml"
+created: 2025-12-25
+brain_worktree: "/home/danyiel/Working/niceProjects/MoshiMoshi/nomad-specs"
+worktree_path: ".worktrees/t7-resilience"
