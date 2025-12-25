@@ -19,11 +19,17 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import docker
 import structlog
 from docker.errors import APIError, NotFound
+
+if TYPE_CHECKING:
+    from docker import DockerClient
+    from docker.models.containers import Container
+    from docker.models.networks import Network
+
 
 def require_env(name: str) -> str:
     """Get required environment variable or fail with clear error.
@@ -45,11 +51,6 @@ def require_env(name: str) -> str:
         )
     return value
 
-
-if TYPE_CHECKING:
-    from docker import DockerClient
-    from docker.models.containers import Container
-    from docker.models.networks import Network
 
 log = structlog.get_logger()
 
@@ -165,7 +166,7 @@ class ContainerManager:
             NOMAD_TEST_NETWORK: Docker network name for tests
             NOMAD_TEST_SUBNET: Subnet for test network (CIDR notation)
         """
-        self.client = client or docker.from_env()
+        self._docker: DockerClient = client or docker.from_env()
         self.network_name = network_name or require_env("NOMAD_TEST_NETWORK")
         self.subnet = subnet or require_env("NOMAD_TEST_SUBNET")
         self._network: Network | None = None
@@ -181,12 +182,12 @@ class ContainerManager:
     def _ensure_network(self) -> Network:
         """Ensure the test network exists."""
         try:
-            network = self.client.networks.get(self.network_name)
+            network = self._docker.networks.get(self.network_name)
             log.debug("network_exists", name=self.network_name)
             return network
         except NotFound:
             log.info("creating_network", name=self.network_name, subnet=self.subnet)
-            return self.client.networks.create(
+            return self._docker.networks.create(
                 self.network_name,
                 driver="bridge",
                 ipam=docker.types.IPAMConfig(
@@ -216,7 +217,7 @@ class ContainerManager:
             tag=tag,
         )
 
-        image, build_logs = self.client.images.build(
+        image, build_logs = self._docker.images.build(
             path=str(config.context),
             dockerfile=config.dockerfile,
             target=config.target,
@@ -225,12 +226,15 @@ class ContainerManager:
         )
 
         for log_entry in build_logs:
-            if "stream" in log_entry:
-                line = log_entry["stream"].strip()
-                if line:
-                    log.debug("build_log", line=line)
+            if isinstance(log_entry, dict) and "stream" in log_entry:
+                stream = log_entry.get("stream")
+                if isinstance(stream, str):
+                    line = stream.strip()
+                    if line:
+                        log.debug("build_log", line=line)
 
-        return image.id
+        image_id: str = image.id  # type: ignore[assignment]
+        return image_id
 
     def start_container(
         self,
@@ -259,7 +263,7 @@ class ContainerManager:
             ip=config.ip_address,
         )
 
-        container = self.client.containers.run(
+        container = self._docker.containers.run(
             image,
             name=name,
             detach=True,
@@ -395,7 +399,7 @@ class ContainerManager:
         self,
         name: str,
         command: str | list[str],
-        **kwargs,
+        **kwargs: Any,
     ) -> tuple[int, str]:
         """Execute a command in a container.
 
@@ -575,7 +579,7 @@ class PacketCapture:
         if not server:
             raise RuntimeError(f"Server container '{server_container}' not running")
 
-        self._container = self.manager.client.containers.run(
+        self._container = self.manager._docker.containers.run(
             "nicolaka/netshoot:latest",
             command=f"tcpdump -i {interface} -w /capture/nomad.pcap -U {filter_expr}",
             name=tcpdump_container,
