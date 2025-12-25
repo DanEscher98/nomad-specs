@@ -51,7 +51,7 @@ packet
   +2: "Protocol Version"
   +32: "Initiator Ephemeral Public Key (32 bytes)"
   +48: "Encrypted Initiator Static (32 + 16 tag)"
-  +var: "Encrypted Payload (min 16 tag)"
+  +16: "Encrypted Payload (min 16 tag)"
 ```
 
 | Field | Offset | Size | Description |
