@@ -308,11 +308,17 @@ Sessions MUST rekey periodically for forward secrecy.
 
 | Constant | Value | Rationale |
 |----------|-------|-----------|
-| `REKEY_AFTER_TIME` | 3600 seconds (1 hour) | Balance forward secrecy vs overhead |
+| `REKEY_AFTER_TIME` | 300 seconds (5 min) | Balance forward secrecy vs overhead |
 | `REKEY_AFTER_MESSAGES` | 2^32 | ~4 billion frames; at 50 Hz = 2.7 years |
-| `REJECT_AFTER_TIME` | 3660 seconds | REKEY + 60s grace period |
+| `REJECT_AFTER_TIME` | 360 seconds (6 min) | REKEY + 60s grace period |
 | `REJECT_AFTER_MESSAGES` | 2^64 - 1 | **HARD LIMIT** - MUST terminate session |
 | `OLD_KEY_RETENTION` | max(5 × SRTT, 30s) | Adaptive; covers worst-case in-flight packets |
+
+**Why 5 minutes?** The 5-minute rekey interval balances security and practicality:
+- Provides tight forward secrecy windows (attacker with compromised keys gets ≤5 min)
+- Aligns with typical interactive work units (run command, review, iterate)
+- 60% fewer rekeys than 2-minute alternative without sacrificing security
+- Survives brief network interruptions comfortably
 
 **Adaptive OLD_KEY_RETENTION**: Implementations SHOULD retain old keys for at least
 5× the smoothed RTT to handle delayed packets. The 30-second minimum accounts for
