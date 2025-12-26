@@ -87,16 +87,25 @@ packet
 
 **Minimum size:** 28 bytes (header only, empty diff for ack-only)
 
-### Base State Num Rationale
+### base_state_num Field
 
-The `base_state_num` field serves two purposes:
+The `base_state_num` field indicates the state version from which the diff was computed.
 
-1. **Debugging**: Helps trace which state transition a diff represents
-2. **Future optimization**: Could enable diff chaining or conflict detection
+**Current specification:** Receivers MUST ignore `base_state_num` for convergence
+decisions. The field exists for:
+1. **Debugging:** Helps trace diff provenance
+2. **Forward compatibility:** Reserved for future diff-chaining optimizations
 
-**Current behavior**: Receivers ignore `base_state_num` and apply diffs based solely on `sender_state_num` comparison. The diff MUST be designed to converge regardless of the receiver's current state (idempotent).
+**Validation (OPTIONAL):** Implementations MAY reject messages where
+`base_state_num > sender_state_num` as malformed, but this is not required.
 
-> **Note**: Mosh's SSP uses only two version numbers. The third field adds 8 bytes overhead but improves debuggability. Implementations MAY validate that `base_state_num <= sender_state_num`.
+**Why ignore it?** NOMAD's convergence relies solely on `sender_state_num`
+comparison. The receiver always applies diffs to bring its view of peer state
+up to `sender_state_num`, regardless of what state the sender computed the diff from.
+This simplifies implementation and handles out-of-order delivery gracefully.
+
+> **Note**: Mosh's SSP uses only two version numbers. The third field adds 8 bytes
+> overhead but improves debuggability and forward compatibility.
 
 ---
 
@@ -223,6 +232,33 @@ sequenceDiagram
 
     Note over S,C: States converged to C
 ```
+
+---
+
+## Counter Limits and Overflow
+
+### State Version Numbers
+
+State version numbers (`sender_state_num`, `acked_state_num`, `base_state_num`)
+are 64-bit unsigned integers.
+
+**Overflow behavior:** Implementations MUST NOT allow version numbers to wrap.
+If `sender_state_num` would exceed `2^64 - 1`, the session MUST be terminated
+and a new session established via fresh handshake.
+
+**Practical consideration:** At 1 million state updates per second, reaching
+`2^64` would take ~584,942 years. Overflow is not a practical concern for any
+real-world session.
+
+### Nonce Counter Interaction
+
+The 8-byte nonce counter in transport frames has a separate limit. Per §Security:
+- `REKEY_AFTER_MESSAGES = 2^60`: Soft limit, initiate rekey
+- `REJECT_AFTER_MESSAGES = 2^64 - 1`: Hard limit, terminate session
+
+State version numbers and nonce counters are independent. A session may have
+many state updates without frame transmissions (local changes), or many frames
+per state update (retransmissions).
 
 ---
 

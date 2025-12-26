@@ -105,22 +105,31 @@ packet
 
 ## Session Key Derivation
 
-After successful handshake, both parties derive session keys and rekey authentication key:
+After successful handshake, both parties derive session keys using HKDF with BLAKE2s.
 
-```
-// Session keys for epoch 0
+### HKDF Construction
+
+NOMAD uses HKDF (RFC 5869) instantiated with BLAKE2s as the hash function:
+- **HKDF-Extract**: `PRK = HMAC-BLAKE2s(salt, IKM)`
+- **HKDF-Expand**: `OKM = HMAC-BLAKE2s(PRK, info || 0x01) || ...`
+
+For Noise protocol integration, the salt is empty (zero-length) and the IKM
+is the Noise handshake hash.
+
+### Session Keys (Epoch 0)
+
+The `handshake_hash` is the final 32-byte symmetric state after all Noise_IK
+messages have been processed. Both parties compute identical values.
+
+```python
+# Extract (salt is empty per Noise specification)
+PRK_session = HKDF-Extract(salt=b"", IKM=handshake_hash)
+
+# Expand to 64 bytes
 (initiator_key, responder_key) = HKDF-Expand(
-    handshake_hash,
+    PRK_session,
     "nomad v1 session keys",
     64
-)
-
-// Rekey authentication key (for post-compromise security)
-// Derived from static DH, which attacker cannot reproduce
-rekey_auth_key = HKDF-Expand(
-    static_dh_secret,       // DH(s_initiator, S_responder)
-    "nomad v1 rekey auth",
-    32
 )
 ```
 
@@ -129,7 +138,23 @@ rekey_auth_key = HKDF-Expand(
 | Initiator | `initiator_key` | `responder_key` |
 | Responder | `responder_key` | `initiator_key` |
 
-The `rekey_auth_key` MUST be retained for the session lifetime. It is used during rekeying to provide post-compromise security against active attackers (see §Post-Rekey Keys).
+### Rekey Authentication Key
+
+The `rekey_auth_key` is derived separately from the **static DH** to provide
+post-compromise security (see §Post-Rekey Keys for threat model).
+
+```python
+# static_dh_secret = DH(initiator_static_private, responder_static_public)
+PRK_rekey = HKDF-Extract(salt=b"", IKM=static_dh_secret)
+
+rekey_auth_key = HKDF-Expand(
+    PRK_rekey,
+    "nomad v1 rekey auth",
+    32
+)
+```
+
+This key MUST be retained for the session lifetime (used in every rekey operation).
 
 ---
 
@@ -162,6 +187,18 @@ def create_session():
             return session_id
     raise Error("session ID collision - too many active sessions")
 ```
+
+### Session ID Scope
+
+Session IDs are **per-responder**, not globally unique. Each responder (server)
+maintains its own set of active session IDs independently.
+
+**Rationale for 48-bit:** With 48 bits, collision probability reaches 50% after
+2^24 (~16.7 million) concurrent sessions per responder. For typical servers
+handling 1,000-10,000 concurrent sessions, this provides 1,600-16,000× safety margin.
+The 6-byte size also aligns efficiently with the frame header structure.
+
+A 64-bit session ID would add 2 bytes per frame with negligible practical benefit.
 
 ---
 
@@ -230,6 +267,17 @@ packet
 | Direction | `0x00` = Initiator→Responder, `0x01` = Responder→Initiator |
 | Zeros | Padding |
 | Counter | Per-direction frame counter, starts at 0 |
+
+**Rationale for 11-byte zero field:**
+
+The nonce structure totals 24 bytes (4+1+11+8) to match XChaCha20's nonce requirement.
+The zero padding:
+1. Ensures domain separation between epochs and directions
+2. Provides room for future extensions without protocol changes
+3. Maintains constant nonce size for implementation simplicity
+
+The direction byte prevents counter collision between initiator and responder traffic
+without requiring additional synchronization state.
 
 ### Additional Authenticated Data (AAD)
 
@@ -344,23 +392,53 @@ def decrypt_frame(frame):
     return failure
 ```
 
-### Post-Rekey Keys
+### Post-Rekey Keys (Post-Compromise Security)
 
-New session keys are derived from the ephemeral DH AND the `rekey_auth_key`:
+New session keys are derived from both the new ephemeral DH AND the `rekey_auth_key`:
 
-```
-// Ephemeral DH between new ephemeral keys
-ephemeral_dh = DH(initiator_ephemeral, responder_ephemeral)
+```python
+# New ephemeral DH between fresh ephemeral keys
+ephemeral_dh = DH(initiator_ephemeral_new, responder_ephemeral_new)
 
-// Mix with rekey_auth_key for post-compromise security
+# CRITICAL: Concatenation order is ephemeral THEN auth key
 (new_initiator_key, new_responder_key) = HKDF-Expand(
-    ephemeral_dh || rekey_auth_key,
+    ephemeral_dh || rekey_auth_key,  # 64 bytes total
     "nomad v1 rekey" || LE32(epoch),
     64
 )
 ```
 
-> **Post-Compromise Security**: The `rekey_auth_key` ensures that an attacker who has compromised a session key cannot maintain access after rekey. Since `rekey_auth_key` is derived from static DH during handshake, the attacker cannot compute valid new keys even if they inject their own ephemeral during rekey. See `formal/proverif/nomad_rekey_fixed.pv` for formal verification.
+### Threat Model
+
+**Attack scenario:** An attacker who has compromised current session keys
+(e.g., via memory dump) attempts to maintain access after rekey.
+
+**Without PCS fix (vulnerable):**
+1. Attacker has `current_session_keys` from epoch N
+2. Attacker intercepts rekey, injects their own ephemeral
+3. Both parties derive: `new_keys = KDF(attacker_ephemeral_dh)`
+4. Attacker knows `attacker_ephemeral_dh`, computes valid new keys
+5. **Attacker maintains access indefinitely**
+
+**With PCS fix (secure):**
+1. Attacker has `current_session_keys` from epoch N
+2. Attacker intercepts rekey, injects their own ephemeral
+3. Both parties derive: `new_keys = KDF(attacker_ephemeral_dh || rekey_auth_key)`
+4. Attacker does NOT have `rekey_auth_key` (derived from static DH during handshake)
+5. **Attacker cannot compute valid new keys**
+
+The `rekey_auth_key` is derived from `DH(s_initiator, S_responder)` which the
+attacker cannot reproduce without static private keys. Session key compromise
+alone is insufficient.
+
+> See `formal/proverif/nomad_rekey_fixed.pv` for formal verification of this property.
+
+### Why Retain rekey_auth_key?
+
+Unlike ephemeral session keys (which are zeroed after each epoch), `rekey_auth_key`
+MUST be retained for the session lifetime because it is needed for every subsequent
+rekey operation. It provides the "static anchor" that prevents active attackers
+from taking over a session.
 
 ---
 
