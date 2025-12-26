@@ -50,7 +50,7 @@ None.
 | t7-resilience | 118fa14 | N/A | N/A | 🔲 | Network resilience (chaos, latency, packet loss) |
 | t8-adversarial | b91c742 | ✅ | ✅ | N/A | Security adversarial, replay attacks |
 | t4-extensions | 42128a9 | ✅ | N/A | N/A | Extension mechanism, TLV encoding, compression (83 tests) |
-| t11-formal | 51c3cf8 | ✅ | N/A | N/A | ProVerif + TLA+ formal verification, **PCS fix** |
+| t11-formal | dd23863 | ✅ | N/A | N/A | ProVerif + TLA+ formal verification, **PCS fix**, SlidingWindow.tla |
 | t9-paper | 30827ed | ✅ | N/A | N/A | arXiv paper (7 pages), formal verification section |
 
 ---
