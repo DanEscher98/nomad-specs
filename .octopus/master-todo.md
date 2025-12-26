@@ -21,7 +21,11 @@ Tests are named by **infrastructure required** (prefix), not by what they test (
 
 ## Active Tentacles
 
-None - all merged.
+| ID | Branch | Worktree | Description |
+|----|--------|----------|-------------|
+| t9-paper | tentacle/t9-paper | .worktrees/t9-paper | arXiv paper preparation |
+| t10-launch | tentacle/t10-launch | .worktrees/t10-launch | Launch coordination & outreach |
+| t11-formal | tentacle/t11-formal | .worktrees/t11-formal | Formal verification (ProVerif + TLA+) |
 
 ## Pending Tentacles
 
