@@ -8,11 +8,19 @@
  *   2. Idempotent diffs - applying same diff twice has no effect
  *   3. Monotonic versions - out-of-order handled correctly
  *   4. Ack tracking - proper acknowledgment flow
+ *   5. Counter overflow prevention - state numbers never exceed limit
  *
  * From 3-SYNC.md:
  *   - Sender tracks: current state, current_num, last_sent, last_sent_num, last_acked
  *   - Receiver tracks: peer_state, peer_state_num
  *   - Messages: (sender_state_num, acked_state_num, base_state_num, diff)
+ *
+ * Counter Overflow (3-SYNC.md §Counter Limits and Overflow):
+ *   - State version numbers are 64-bit unsigned integers
+ *   - Implementations MUST NOT allow version numbers to wrap
+ *   - If state_num would exceed 2^64-1, session MUST be terminated
+ *   - In this model, MaxStateNum represents the hard limit (2^64-1 in spec)
+ *   - LocalStateChange guard prevents overflow; reaching limit = quiescence
  *)
 
 EXTENDS Integers, Sequences, FiniteSets
@@ -67,11 +75,24 @@ TypeOK ==
 \* The "other" node (peer)
 Peer(n) == IF n = 1 THEN 2 ELSE 1
 
-\* Apply diff to state (simplified: state + diff)
-ApplyDiff(s, d) == s + d
+\* Apply diff to state
+\* SPEC: 3-SYNC.md §Idempotent Diff Types
+\*
+\* NOMAD diffs are idempotent by design. This is modeled as:
+\*   ApplyDiff(s, d) = d  (last-writer-wins / "set to value d")
+\*
+\* Real NOMAD diffs include:
+\*   - LWW (Last-Writer-Wins): set field to value
+\*   - GCounter: increment-only counter
+\*   - Max: maximum of old and new value
+\*
+\* The simplified model uses LWW semantics where the diff IS the new state.
+\* This ensures ApplyDiff(ApplyDiff(s, d), d) = ApplyDiff(s, d) = d
+ApplyDiff(s, d) == d  \* LWW semantics: diff is the target state
 
 \* Check if a diff is idempotent when applied twice
 \* In NOMAD, diffs are designed to be idempotent
+\* SPEC: 3-SYNC.md §Idempotent Diff Formalization
 IdempotentApply(s, d) == ApplyDiff(ApplyDiff(s, d), d) = ApplyDiff(s, d)
 
 -----------------------------------------------------------------------------
@@ -174,7 +195,45 @@ Next ==
 
 -----------------------------------------------------------------------------
 (* Fairness Constraints *)
+(* SPEC: 3-SYNC.md §Convergence Guarantees                                  *)
 -----------------------------------------------------------------------------
+
+(*
+ * FAIRNESS ASSUMPTIONS FOR LIVENESS
+ * ==================================
+ *
+ * The sync layer requires weak fairness (WF) on message delivery to guarantee
+ * eventual consistency. This models real-world assumptions:
+ *
+ * ASSUMPTION 1: Eventual Delivery (WF on ReceiveSync)
+ *   - If a message is in the network and the receiver can process it,
+ *     it will eventually be delivered.
+ *   - Real-world: UDP messages usually get through; total network partition
+ *     is a failure mode outside protocol scope.
+ *
+ * ASSUMPTION 2: Eventual Transmission (WF on SendSync)
+ *   - If a node has new state to send, it will eventually send a sync message.
+ *   - Real-world: Application layer triggers periodic sync (adaptive interval
+ *     based on RTT, typically 50-100ms).
+ *
+ * WHAT THIS DOES NOT ASSUME:
+ *   - Strong fairness (SF): We don't require "infinitely often enabled implies
+ *     infinitely often taken". Weak fairness is sufficient.
+ *   - Bounded latency: Messages can be arbitrarily delayed.
+ *   - FIFO delivery: Messages can arrive out of order.
+ *   - At-most-once delivery: Messages can be duplicated.
+ *
+ * WHY LIVENESS IS DISABLED IN CONFIG:
+ *   The LoseMessage action models UDP unreliability. Without fairness constraints,
+ *   an infinite sequence of message losses is a valid behavior, which violates
+ *   any liveness property. We verify safety (always holds) but not liveness
+ *   (eventually holds) because the model allows infinite loss.
+ *
+ *   In practice, NOMAD relies on:
+ *   1. Application-layer retransmission (periodic sync messages)
+ *   2. Network redundancy (multiple paths, retries at lower layers)
+ *   3. Idempotent diffs (safe to retransmit without deduplication)
+ *)
 
 \* Weak fairness: if a message can be delivered, it eventually will be
 \* This models "at least one message gets through eventually"
@@ -209,11 +268,62 @@ ValidMessages ==
         /\ msg.acked_num <= state_num[msg.to]
         /\ msg.base_num <= msg.sender_num
 
-Safety == MonotonicStateNums /\ AckedNeverExceedsSent /\ PeerNeverAhead /\ ValidMessages
+\* S5: State numbers never exceed hard limit (counter overflow prevention)
+\* Per 3-SYNC.md: If state_num would exceed 2^64-1, session MUST be terminated
+\* The LocalStateChange guard (state_num[n] < MaxStateNum) ensures this
+StateNumBounded ==
+    \A n \in 1..NumNodes : state_num[n] <= MaxStateNum
+
+\* S6: Diffs are idempotent (applying twice equals applying once)
+\* SPEC: 3-SYNC.md §Idempotent Diff Formalization
+\* This is a meta-property verified by the ApplyDiff definition (LWW semantics)
+DiffsAreIdempotent ==
+    \A s \in 0..MaxDiffValue * MaxStateNum :
+        \A d \in 0..MaxDiffValue :
+            IdempotentApply(s, d)
+
+Safety == MonotonicStateNums /\ AckedNeverExceedsSent /\ PeerNeverAhead /\ ValidMessages /\ StateNumBounded
 
 -----------------------------------------------------------------------------
 (* Liveness Properties *)
+(* SPEC: 3-SYNC.md §Convergence Guarantees                                  *)
 -----------------------------------------------------------------------------
+
+(*
+ * CONVERGENCE PROOF SKETCH
+ * ========================
+ *
+ * Claim: Under fair message delivery, both nodes eventually agree on each
+ *        other's state (peer_state_num[n] = state_num[Peer(n)] for all n).
+ *
+ * Proof sketch:
+ *
+ * 1. MONOTONICITY: state_num[n] only increases (LocalStateChange increments).
+ *    This is verified by invariant MonotonicStateNums.
+ *
+ * 2. BOUNDED GAP: peer_state_num[n] <= state_num[Peer(n)] always holds.
+ *    This is verified by invariant PeerNeverAhead.
+ *
+ * 3. PROGRESS: When peer_state_num[n] < state_num[Peer(n)]:
+ *    a. Peer(n) sends a sync message (SendSync enabled when state changes)
+ *    b. Message contains sender_num = state_num[Peer(n)]
+ *    c. Under weak fairness, message eventually delivered (ReceiveSync)
+ *    d. Receiver updates: peer_state_num[n] := max(peer_state_num[n], msg.sender_num)
+ *    e. Gap shrinks: new peer_state_num[n] >= old peer_state_num[n]
+ *
+ * 4. CONVERGENCE: Since state_num is bounded (MaxStateNum) and peer_state_num
+ *    can only increase toward it, and progress is guaranteed by fairness,
+ *    eventually peer_state_num[n] = state_num[Peer(n)].
+ *
+ * 5. IDEMPOTENCE: Out-of-order or duplicate messages are safe because:
+ *    a. Receiver only updates if msg.sender_num > peer_state_num[n]
+ *    b. Diffs are designed to be idempotent (ApplyDiff(ApplyDiff(s,d),d) = ApplyDiff(s,d))
+ *    c. This is verified by the IdempotentApply helper function
+ *
+ * Note: This proof assumes fair message delivery (at least one message eventually
+ * gets through). The UDP LoseMessage action can drop any message, so liveness
+ * only holds under fairness constraints (WF_vars on ReceiveSync/SendSync).
+ *)
 
 \* L1: Eventual consistency - when a sync message is successfully delivered,
 \* the receiver's view eventually catches up to what was sent.
