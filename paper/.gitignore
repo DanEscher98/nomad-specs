@@ -1,6 +1,5 @@
 # LaTeX build artifacts
 *.aux
-*.bbl
 *.blg
 *.fdb_latexmk
 *.fls
@@ -11,8 +10,14 @@
 *.lof
 *.lot
 
+# Keep .bbl for arXiv (they don't run bibtex)
+# *.bbl
+
 # Generated PDF (keep in repo for convenience)
 # nomad.pdf
+
+# arXiv submission package (regenerate with: make arxiv)
+arxiv-submission.zip
 
 # Editor files
 *.swp

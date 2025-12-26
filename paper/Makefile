@@ -10,7 +10,7 @@ MMDC = mmdc
 # Figures directory
 FIGURES_DIR = figures
 
-.PHONY: all clean figures pdf bib
+.PHONY: all clean figures pdf bib arxiv
 
 all: pdf
 
@@ -39,15 +39,33 @@ $(FIGURES_DIR)/handshake.pdf: $(FIGURES_DIR)/handshake.mmd
 $(FIGURES_DIR)/roaming.pdf: $(FIGURES_DIR)/roaming.mmd
 	$(MMDC) -i $< -o $@ -t neutral
 
-# Clean auxiliary files
+# arXiv submission package
+# Note: arXiv requires .bbl file (they don't run bibtex)
+arxiv: $(MAIN).bbl
+	@echo "Creating arXiv submission package..."
+	@rm -f arxiv-submission.zip
+	zip arxiv-submission.zip $(MAIN).tex $(MAIN).bbl references.bib
+	@echo "Created arxiv-submission.zip"
+	@echo "Contents:"
+	@unzip -l arxiv-submission.zip
+	@echo ""
+	@echo "Submit to: https://arxiv.org/submit"
+	@echo "Category: cs.NI (Networking and Internet Architecture)"
+
+# Generate .bbl file
+$(MAIN).bbl: $(MAIN).tex references.bib
+	$(LATEX) $(MAIN)
+	$(BIBTEX) $(MAIN)
+
+# Clean auxiliary files (keeps .bbl for arxiv)
 clean:
-	rm -f $(MAIN).aux $(MAIN).bbl $(MAIN).blg $(MAIN).log $(MAIN).out
+	rm -f $(MAIN).aux $(MAIN).blg $(MAIN).log $(MAIN).out
 	rm -f $(MAIN).toc $(MAIN).lof $(MAIN).lot $(MAIN).fls $(MAIN).fdb_latexmk
 	rm -f $(MAIN).synctex.gz
 
-# Clean everything including PDF
+# Clean everything including PDF and .bbl
 distclean: clean
-	rm -f $(MAIN).pdf
+	rm -f $(MAIN).pdf $(MAIN).bbl arxiv-submission.zip
 
 # Watch for changes and rebuild (requires latexmk)
 watch:
@@ -70,8 +88,9 @@ help:
 	@echo "  all      - Build PDF (default)"
 	@echo "  pdf      - Build PDF with bibliography"
 	@echo "  quick    - Quick build (single pass)"
+	@echo "  arxiv    - Create arXiv submission package (.zip)"
 	@echo "  figures  - Convert Mermaid diagrams to PDF"
-	@echo "  clean    - Remove auxiliary files"
+	@echo "  clean    - Remove auxiliary files (keeps .bbl)"
 	@echo "  distclean- Remove all generated files"
 	@echo "  watch    - Auto-rebuild on changes"
 	@echo "  lint     - Check for common issues"
