@@ -95,7 +95,7 @@ Prepare the NOMAD Protocol for arXiv publication. Create a professional academic
 ## Notes from Tentacle
 
 **Author info added:**
-- Danyiel Colin (Independent Researcher)
+- Danyiel Colin
 - amaniel2718@protonmail.com
 - Rust implementation: https://crates.io/crates/nomad-protocol
 
@@ -111,6 +111,52 @@ Prepare the NOMAD Protocol for arXiv publication. Create a professional academic
 - Target: arXiv cs.NI (Networking and Internet Architecture)
 
 To compile: `cd paper && make pdf`
+
+---
+
+## arXiv Submission Checklist
+
+From https://info.arxiv.org/help/submit_tex.html
+
+### Files to Include
+- [ ] `nomad.tex` - main LaTeX file
+- [ ] `references.bib` - BibTeX source
+- [ ] `nomad.bbl` - **REQUIRED**: processed BibTeX output (arXiv doesn't run bibtex)
+- [ ] Figure files (PDF/PNG/JPG only for pdflatex)
+
+### Files to EXCLUDE (arXiv auto-removes)
+- `*.aux`, `*.log`, `*.toc`, `*.lot`, `*.lof`
+- `*.dvi`, `*.ps`
+- `nomad.pdf` (arXiv generates its own)
+- Backup files, extraneous files
+
+### Requirements Checklist
+- [ ] Single-spaced (not double-spaced referee mode)
+- [ ] No `\today` in `\date{}` field (we use `\date{}` which is fine)
+- [ ] No JavaScript/animated content in figures
+- [ ] Figures in PDF/PNG/JPG format (Mermaid → PDF conversion needed)
+- [ ] All `\includegraphics` paths correct
+- [ ] No `psfig` package (deprecated)
+
+### Submission Package
+```bash
+# Generate .bbl file
+cd paper
+pdflatex nomad.tex
+bibtex nomad
+pdflatex nomad.tex
+pdflatex nomad.tex
+
+# Create submission archive (include .bbl, exclude .pdf and aux files)
+zip arxiv-submission.zip nomad.tex nomad.bbl references.bib figures/*.pdf
+```
+
+### Before Submit
+- [ ] Convert Mermaid diagrams to PDF: `mmdc -i fig.mmd -o fig.pdf`
+- [ ] Verify .bbl file is generated and included
+- [ ] Test compile on clean machine
+- [ ] Select processor: PDFLaTeX
+- [ ] Category: cs.NI (Networking and Internet Architecture)
 
 ---
 *Auto-generated from .octopus/master-todo.md*
