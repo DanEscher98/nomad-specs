@@ -1,0 +1,7 @@
+tentacle_id: t2-transport
+description: "Transport layer spec + tests"
+branch: tentacle/t2-transport
+scope: "specs/2-TRANSPORT.md, tests/unit/test_frame*, tests/wire/*"
+created: 2025-12-25
+brain_worktree: "/home/danyiel/Working/niceProjects/MoshiMoshi/nomad-specs"
+worktree_path: ".worktrees/t2-transport"

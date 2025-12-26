@@ -434,6 +434,11 @@ dev = [
     { name = "types-docker" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "ruff" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "attrs", specifier = ">=23.0" },
@@ -454,6 +459,9 @@ requires-dist = [
     { name = "types-docker", marker = "extra == 'dev'", specifier = ">=7.0" },
 ]
 provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "ruff", specifier = ">=0.14.10" }]
 
 [[package]]
 name = "packaging"
