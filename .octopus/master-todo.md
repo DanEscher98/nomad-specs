@@ -24,7 +24,6 @@ Tests are named by **infrastructure required** (prefix), not by what they test (
 | ID | Branch | Worktree | Description |
 |----|--------|----------|-------------|
 | t6-vectors | tentacle/t6-vectors | .worktrees/t6-vectors | **Phase 2: PCS fix test vectors** |
-| t9-paper | tentacle/t9-paper | .worktrees/t9-paper | arXiv paper preparation |
 | t10-launch | tentacle/t10-launch | .worktrees/t10-launch | Launch coordination & outreach |
 
 ## Pending Tentacles
@@ -53,6 +52,7 @@ None.
 | t8-adversarial | b91c742 | ✅ | ✅ | N/A | Security adversarial, replay attacks |
 | t4-extensions | 42128a9 | ✅ | N/A | N/A | Extension mechanism, TLV encoding, compression (83 tests) |
 | t11-formal | 51c3cf8 | ✅ | N/A | N/A | ProVerif + TLA+ formal verification, **PCS fix** |
+| t9-paper | 30827ed | ✅ | N/A | N/A | arXiv paper (7 pages), formal verification section |
 
 ---
 
