@@ -1,0 +1,8 @@
+%%{init: {'theme': 'neutral'}}%%
+packet-beta
+  0-7: "Type 0x03"
+  8-15: "Flags"
+  16-63: "Session ID (6 bytes)"
+  64-127: "Nonce Counter (8 bytes)"
+  128-255: "Encrypted Payload..."
+  256-383: "AEAD Tag (16 bytes)"

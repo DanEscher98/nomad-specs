@@ -17,39 +17,39 @@ Prepare the NOMAD Protocol for arXiv publication. Create a professional academic
 ## Tasks
 
 ### Phase 1: Research & Extraction
-- [ ] Extract key contributions from each spec
-- [ ] Identify novel aspects vs Mosh/QUIC/WireGuard
-- [ ] List evaluation metrics from test suite (657 spec, 60 server tests)
-- [ ] Gather timing constants and security properties
+- [x] Extract key contributions from each spec
+- [x] Identify novel aspects vs Mosh/QUIC/WireGuard
+- [x] List evaluation metrics from test suite (657 spec, 60 server tests)
+- [x] Gather timing constants and security properties
 
 ### Phase 2: LaTeX Setup
-- [ ] Create `paper/` directory
-- [ ] Set up ACM or IEEE LaTeX template (arXiv-friendly)
-- [ ] Create `paper/figures/` for diagrams
-- [ ] Add Makefile for compilation
+- [x] Create `paper/` directory
+- [x] Set up ACM or IEEE LaTeX template (arXiv-friendly)
+- [x] Create `paper/figures/` for diagrams
+- [x] Add Makefile for compilation
 
 ### Phase 3: Writing Sections
-- [ ] Abstract (200 words): State sync + Noise + UDP
-- [ ] Introduction: Problem statement, Mosh limitations, contribution
-- [ ] Background: Noise Protocol, XChaCha20-Poly1305, SSP concept
-- [ ] Protocol Overview: Layer diagram, message types
-- [ ] Security Layer: Noise_IK handshake, rekeying, replay protection
-- [ ] Transport Layer: Framing, keepalive, roaming
-- [ ] Sync Layer: Versioned state, idempotent diffs, convergence
-- [ ] Extensions: TLV mechanism, compression
-- [ ] Evaluation: Test suite coverage, conformance methodology
-- [ ] Related Work: Mosh, QUIC, WireGuard comparison table
-- [ ] Conclusion & Future Work
+- [x] Abstract (200 words): State sync + Noise + UDP
+- [x] Introduction: Problem statement, Mosh limitations, contribution
+- [x] Background: Noise Protocol, XChaCha20-Poly1305, SSP concept
+- [x] Protocol Overview: Layer diagram, message types
+- [x] Security Layer: Noise_IK handshake, rekeying, replay protection
+- [x] Transport Layer: Framing, keepalive, roaming
+- [x] Sync Layer: Versioned state, idempotent diffs, convergence
+- [x] Extensions: TLV mechanism, compression
+- [x] Evaluation: Test suite coverage, conformance methodology
+- [x] Related Work: Mosh, QUIC, WireGuard comparison table
+- [x] Conclusion & Future Work
 
 ### Phase 4: Figures (Mermaid → PDF/SVG)
-- [ ] Protocol layer stack diagram
-- [ ] Noise_IK handshake sequence
-- [ ] Frame format packet diagram
-- [ ] Sync convergence state machine
-- [ ] Roaming message flow
+- [x] Protocol layer stack diagram
+- [x] Noise_IK handshake sequence
+- [x] Frame format packet diagram
+- [x] Sync convergence state machine
+- [x] Roaming message flow
 
 ### Phase 5: arXiv Prep
-- [ ] Bibliography (BibTeX)
+- [x] Bibliography (BibTeX)
 - [ ] Author affiliations
 - [ ] License selection (CC BY)
 - [ ] Abstract metadata for arXiv submission

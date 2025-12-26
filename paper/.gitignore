@@ -1,0 +1,23 @@
+# LaTeX build artifacts
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.toc
+*.lof
+*.lot
+
+# Generated PDF (keep in repo for convenience)
+# nomad.pdf
+
+# Editor files
+*.swp
+*~
+.*.swp
+
+# Mermaid intermediates
+figures/*.svg
