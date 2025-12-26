@@ -111,10 +111,6 @@ test-parallel: install
 test-file file: install
     cd tests && uv run pytest {{ file }} -v
 
-# Run a specific E2E test file (with .env)
-test-e2e-file file: install
-    set -a && source docker/.env && set +a && cd tests && uv run pytest {{ file }} -v
-
 # =============================================================================
 # Development
 # =============================================================================
