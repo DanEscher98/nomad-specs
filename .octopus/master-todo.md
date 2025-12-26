@@ -26,11 +26,27 @@ None - all tentacles merged for Phase 1.
 |----|--------|---------|---------|-------|
 | t5-docker | b9c97e7 | ✅ | N/A | Docker infrastructure, 10 tests passing |
 | t6-vectors | 9eba181 | ✅ | N/A | Reference codec (NomadCodec), 35 tests, sync_vectors.json5 |
-| t1-security | 3f13c52 | ✅ | 🔲 | Security layer, 246 tests (AEAD, nonce, handshake, rekey, replay) |
+| t1-security | 3f13c52 | ✅ | ✅ | Security layer, 246 unit + E2E handshake/rekey/replay |
 | t3-sync | 07c6893 | ✅ | 🔲 | Sync layer, 158 tests (diff encode/decode/apply, convergence, flow) |
-| t2-transport | b3c79c6 | ✅ | 🔲 | Transport layer, 163 tests (frame format, session, wire E2E) |
+| t2-transport | b3c79c6 | ✅ | ✅ | Transport layer, 163 unit + E2E wire/keepalive/roaming |
 | t7-resilience | 118fa14 | N/A | 🔲 | Network resilience, E2E only (chaos, latency, packet loss) |
-| t8-adversarial | b91c742 | N/A | 🔲 | Security adversarial, E2E only (replay attacks, session isolation) |
+| t8-adversarial | b91c742 | N/A | ✅ | Security adversarial, E2E replay attacks, session isolation |
+
+---
+
+## E2E Test Suite (External Mode)
+
+Run with: `just test-e2e` (requires `docker-up` first)
+
+| Test File | Tests | Status | Description |
+|-----------|-------|--------|-------------|
+| `protocol/test_e2e_handshake.py` | 5 | ✅ | Noise_IK handshake, session ID, data exchange |
+| `protocol/test_e2e_rekey.py` | 10 | ✅ | Session longevity, rekey frames, forward secrecy |
+| `protocol/test_e2e_keepalive_simple.py` | 12 | ✅ | Keepalive frames, session liveness, timestamps |
+| `protocol/test_e2e_roaming_simple.py` | 10 | ✅ | Port change, migration, anti-amplification |
+| `adversarial/test_e2e_replay.py` | 6 | ✅ | Replay attacks, nonce reuse, session isolation |
+| `wire/test_wire_e2e_simple.py` | 17 | ✅ | Wire format, malformed packets, session ID |
+| **Total** | **60** | ✅ | All passing (1 skipped - slow test) |
 
 ---
 

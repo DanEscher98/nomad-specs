@@ -64,8 +64,9 @@ test: install
     cd tests && uv run pytest -v
 
 # Run all E2E tests against running containers (requires docker-up first)
+# Total: 60 tests (handshake, rekey, keepalive, roaming, replay, wire)
 test-e2e: install
-    set -a && source docker/.env && set +a && cd tests && uv run pytest protocol/test_e2e_*.py adversarial/test_e2e_*.py wire/test_wire_e2e_simple.py -v
+    set -a && source docker/.env && set +a && cd tests && uv run pytest protocol/test_e2e_*.py protocol/test_e2e_*_simple.py adversarial/test_e2e_*.py wire/test_wire_e2e_simple.py -v
 
 # Run a specific E2E test file
 test-e2e-file file: install
