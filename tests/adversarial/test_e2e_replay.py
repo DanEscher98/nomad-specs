@@ -14,14 +14,14 @@ Test mapping: specs/1-SECURITY.md § "Anti-Replay Protection"
 from __future__ import annotations
 
 import base64
+import contextlib
 import os
 import socket
 import struct
 import time
 
 import pytest
-from noise.connection import NoiseConnection, Keypair
-
+from noise.connection import Keypair, NoiseConnection
 
 # =============================================================================
 # Protocol Constants (from spec)
@@ -163,7 +163,7 @@ class TestE2EReplayAttack:
             try:
                 response1 = sock.recv(1024)
                 assert response1[0] == FRAME_DATA, "Expected DATA frame response"
-            except socket.timeout:
+            except TimeoutError:
                 pass  # Server may not echo, that's OK
 
             # Now replay the EXACT same frame
@@ -171,14 +171,11 @@ class TestE2EReplayAttack:
 
             # Server should silently drop - no response
             sock.settimeout(1.0)  # Short timeout
-            try:
-                response2 = sock.recv(1024)
+            with contextlib.suppress(TimeoutError):
+                sock.recv(1024)
                 # If we get a response, it should NOT be for the replayed message
                 # (could be delayed response from first message)
                 # This is a weak check - better would be to verify no processing
-            except socket.timeout:
-                # Expected - server silently drops replay
-                pass
 
         finally:
             sock.close()
@@ -212,10 +209,8 @@ class TestE2EReplayAttack:
 
             # Server should silently drop old nonce
             sock.settimeout(1.0)
-            try:
+            with contextlib.suppress(TimeoutError):
                 sock.recv(1024)
-            except socket.timeout:
-                pass  # Expected
 
         finally:
             sock.close()
@@ -257,10 +252,8 @@ class TestE2EReplayAttack:
 
             # Should be silently dropped
             sock.settimeout(1.0)
-            try:
+            with contextlib.suppress(TimeoutError):
                 sock.recv(1024)
-            except socket.timeout:
-                pass
 
         finally:
             sock.close()
@@ -347,10 +340,8 @@ class TestE2ESessionIsolation:
 
             # Should be silently dropped
             sock.settimeout(1.0)
-            try:
+            with contextlib.suppress(TimeoutError):
                 sock.recv(1024)
-            except socket.timeout:
-                pass  # Expected
 
         finally:
             sock.close()
@@ -388,10 +379,8 @@ class TestE2ESessionIsolation:
 
             # Should be silently dropped (decryption failure)
             sock2.settimeout(1.0)
-            try:
+            with contextlib.suppress(TimeoutError):
                 sock2.recv(1024)
-            except socket.timeout:
-                pass  # Expected
 
         finally:
             sock1.close()

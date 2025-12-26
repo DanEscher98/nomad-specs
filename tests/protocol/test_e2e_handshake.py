@@ -19,8 +19,7 @@ import socket
 import struct
 
 import pytest
-from noise.connection import NoiseConnection, Keypair
-
+from noise.connection import Keypair, NoiseConnection
 
 # =============================================================================
 # Protocol Constants (from spec)
@@ -105,7 +104,7 @@ class TestE2EHandshake:
         # Receive response
         try:
             response = udp_socket.recv(1024)
-        except socket.timeout:
+        except TimeoutError:
             pytest.fail("Server did not respond to HandshakeInit within timeout")
 
         # Verify response format
@@ -209,9 +208,9 @@ class TestE2EHandshake:
             if len(response) > 8 and response[0] == FRAME_HANDSHAKE_RESP:
                 noise_response = response[8:]
                 # This should fail because encryption was to wrong key
-                with pytest.raises(Exception):
+                with pytest.raises(Exception):  # noqa: B017
                     noise.read_message(noise_response)
-        except socket.timeout:
+        except TimeoutError:
             # Silent drop is acceptable security behavior
             pass
 
@@ -266,7 +265,7 @@ class TestE2EDataExchange:
 
         try:
             response = udp_socket.recv(1024)
-        except socket.timeout:
+        except TimeoutError:
             pytest.skip("Server did not respond - may not be running")
 
         # Parse response
@@ -298,6 +297,6 @@ class TestE2EDataExchange:
             data_response = udp_socket.recv(1024)
             # Verify it's a data frame
             assert data_response[0] == FRAME_DATA, f"Expected DATA frame, got 0x{data_response[0]:02x}"
-        except socket.timeout:
+        except TimeoutError:
             # Server may not echo immediately, that's OK for this test
             pass

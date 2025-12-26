@@ -63,9 +63,13 @@ install:
 test: install
     cd tests && uv run pytest -v
 
-# Run E2E tests against running containers (requires docker-up first)
+# Run all E2E tests against running containers (requires docker-up first)
 test-e2e: install
-    set -a && source docker/.env && set +a && cd tests && uv run pytest protocol/test_e2e_handshake.py -v
+    set -a && source docker/.env && set +a && cd tests && uv run pytest protocol/test_e2e_*.py adversarial/test_e2e_*.py wire/test_wire_e2e_simple.py -v
+
+# Run a specific E2E test file
+test-e2e-file file: install
+    set -a && source docker/.env && set +a && cd tests && uv run pytest {{ file }} -v
 
 # Quick E2E: start containers, test, stop
 e2e: docker-up test-e2e docker-down
