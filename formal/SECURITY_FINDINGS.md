@@ -2,18 +2,18 @@
 
 > **Date**: 2025-12-26
 > **Verified By**: Formal methods (ProVerif + TLA+)
-> **Status**: All critical properties verified; findings documented below
+> **Status**: All critical properties verified; PCS vulnerability fixed
 
 ## Executive Summary
 
-Formal verification of the NOMAD protocol reveals **one significant security limitation** in the rekeying mechanism, along with several model refinements needed to accurately capture protocol behavior. All core security properties (authentication, confidentiality, replay protection, anti-amplification) are verified.
+Formal verification of the NOMAD protocol identified **one significant security vulnerability** in the original rekeying mechanism. A fix (`rekey_auth_key`) has been designed, formally verified, and incorporated into the specification. All core security properties (authentication, confidentiality, replay protection, anti-amplification, **post-compromise security**) are now verified.
 
-| Finding                                | Severity | Type              | Status     |
-| -------------------------------------- | -------- | ----------------- | ---------- |
-| PCS fails against active attackers     | **HIGH** | Design Limitation | Documented |
-| Liveness requires bounded message loss | MEDIUM   | Model Design      | Fixed      |
-| NonceUniqueness invariant off-by-one   | LOW      | Model Bug         | Fixed      |
-| AckedNeverExceedsSent wrong comparison | LOW      | Model Bug         | Fixed      |
+| Finding                                | Severity | Type              | Status                  |
+| -------------------------------------- | -------- | ----------------- | ----------------------- |
+| PCS fails against active attackers     | **HIGH** | Design Limitation | **FIXED** (spec updated) |
+| Liveness requires bounded message loss | MEDIUM   | Model Design      | Fixed                   |
+| NonceUniqueness invariant off-by-one   | LOW      | Model Bug         | Fixed                   |
+| AckedNeverExceedsSent wrong comparison | LOW      | Model Bug         | Fixed                   |
 
 ---
 
@@ -23,7 +23,8 @@ Formal verification of the NOMAD protocol reveals **one significant security lim
 
 **Severity**: HIGH
 **Type**: Design Limitation
-**Affects**: `formal/proverif/nomad_rekey.pv`
+**Status**: **FIXED** - `rekey_auth_key` added to spec
+**Affects**: `formal/proverif/nomad_rekey.pv` (original), **fixed in** `nomad_rekey_fixed.pv`
 
 #### Description
 
@@ -67,22 +68,31 @@ ProVerif correctly identifies this attack. The fundamental issue is that rekey m
    - Shorter REKEY_AFTER_TIME limits attack window
    - Doesn't eliminate the vulnerability
 
-#### Recommendation
+#### Resolution
 
-**Implement Option 1 (rekey auth key)** - This is a low-complexity fix that provides full PCS:
+**Option 1 (rekey auth key) has been implemented** in `specs/1-SECURITY.md`:
 
 ```
-// During handshake, after computing session keys:
-rekey_auth_key = HKDF(static_dh_secret, "nomad rekey auth")
+// During handshake, after computing session keys (§Session Key Derivation):
+rekey_auth_key = HKDF-Expand(static_dh_secret, "nomad v1 rekey auth", 32)
 
-// During each rekey:
-key_new = HKDF(ephemeral_dh_secret, rekey_auth_key, epoch_id)
+// During each rekey (§Post-Rekey Keys):
+(new_initiator_key, new_responder_key) = HKDF-Expand(
+    ephemeral_dh || rekey_auth_key,
+    "nomad v1 rekey" || LE32(epoch),
+    64
+)
 ```
 
-**Spec changes required**:
-- Update 1-SECURITY.md §Rekeying to include `rekey_auth_key` in KDF
-- Add `rekey_auth_key` to session state (32 bytes)
-- No wire format changes needed
+**Spec changes made**:
+- ✅ Updated `specs/1-SECURITY.md` §Session Key Derivation with `rekey_auth_key`
+- ✅ Updated `specs/1-SECURITY.md` §Post-Rekey Keys to mix `rekey_auth_key` into KDF
+- ✅ Added PCS to §Security Properties table
+- ✅ No wire format changes needed
+
+**Pending implementation**:
+- Test vectors need updating (escalated to t6-vectors)
+- Rust/Go implementations need updating (escalated to brain)
 
 ---
 
@@ -157,11 +167,12 @@ TimeExpiration(r) ==
 
 ### ProVerif Models
 
-| Model                | Queries | Result                  | Notes                                    |
-| -------------------- | ------- | ----------------------- | ---------------------------------------- |
-| `nomad_handshake.pv` | 5       | **PASS**                | Key secrecy, mutual auth, key agreement  |
-| `nomad_replay.pv`    | 3       | **PASS**                | Frame authenticity, no replay, integrity |
-| `nomad_rekey.pv`     | 3       | 1 PASS, 2 EXPECTED FAIL | FS verified; PCS fails (see F1)          |
+| Model                      | Queries | Result                  | Notes                                       |
+| -------------------------- | ------- | ----------------------- | ------------------------------------------- |
+| `nomad_handshake.pv`       | 5       | **PASS**                | Key secrecy, mutual auth, key agreement     |
+| `nomad_replay.pv`          | 3       | **PASS**                | Frame authenticity, no replay, integrity    |
+| `nomad_rekey.pv`           | 3       | 1 PASS, 2 EXPECTED FAIL | FS verified; PCS fails (original design)    |
+| `nomad_rekey_fixed.pv`     | 3       | **2 PASS, 1 EXPECTED**  | FS + PCS verified (with `rekey_auth_key`)   |
 
 #### Query Details
 
@@ -177,11 +188,17 @@ TimeExpiration(r) ==
 - `event(FrameAccepted(n, p1)) && event(FrameAccepted(n, p2)) ==> p1 = p2`: PASS - No replay
 - Frame integrity: PASS
 
-**nomad_rekey.pv**:
+**nomad_rekey.pv** (original design):
 
 - `attacker(secret_epoch0)`: PASS - Forward secrecy works
 - `attacker(secret_epoch1)`: EXPECTED FAIL - We model key compromise
 - `attacker(secret_epoch2)`: EXPECTED FAIL - PCS limitation (F1)
+
+**nomad_rekey_fixed.pv** (with `rekey_auth_key`):
+
+- `attacker(secret_epoch0)`: PASS - Forward secrecy works
+- `attacker(secret_epoch1)`: EXPECTED FAIL - We model key compromise
+- `attacker(secret_epoch2)`: **PASS** - PCS now works! Attacker cannot derive epoch 2 keys
 
 ### TLA+ Models
 
@@ -223,19 +240,20 @@ TimeExpiration(r) ==
 
 ### Immediate (Before Release)
 
-1. **Update security spec** to document PCS limitation (F1)
-2. **Add identity hiding query** to handshake model
+1. ~~**Update security spec** to document PCS limitation (F1)~~ → **DONE**: Implemented `rekey_auth_key` fix
+2. **Add identity hiding query** to handshake model (P1 future work)
 
 ### Short-term
 
-3. Add idempotent diff invariant to SyncLayer model
-4. Model epoch desynchronization scenarios
-5. Create Justfile commands for running verification
+3. **Update test vectors** with `rekey_auth_key` (escalated to t6-vectors)
+4. **Update implementations** (Rust, Go) with new KDF (escalated to brain)
+5. Add idempotent diff invariant to SyncLayer model
+6. Model epoch desynchronization scenarios
 
 ### Long-term
 
-6. Consider static key authentication for rekey (if PCS against active attackers is required)
 7. Extend models with handshake retry logic
+8. Add Session ID collision verification
 
 ---
 
@@ -251,12 +269,18 @@ TimeExpiration(r) ==
 ## Appendix: Running Verification
 
 ```bash
-# ProVerif models
+# Using Justfile (recommended)
+just formal-all      # Run all verification
+just formal-proverif # ProVerif only
+just formal-tlaplus  # TLA+ only
+
+# Manual: ProVerif models
 proverif formal/proverif/nomad_handshake.pv
 proverif formal/proverif/nomad_replay.pv
 proverif formal/proverif/nomad_rekey.pv
+proverif formal/proverif/nomad_rekey_fixed.pv  # Verifies PCS fix
 
-# TLA+ models
+# Manual: TLA+ models
 java -XX:+UseParallelGC -cp ~/.local/lib/tlaplus/tla2tools.jar tlc2.TLC \
     -config formal/tlaplus/RekeyStateMachine.cfg formal/tlaplus/RekeyStateMachine.tla
 
