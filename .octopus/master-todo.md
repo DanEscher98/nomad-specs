@@ -19,15 +19,20 @@ Tests are named by **infrastructure required** (prefix), not by what they test (
 
 ---
 
-## Active Tentacles (ready to spawn)
+## Active Tentacles
 
-None - all tentacles merged for Phase 1.
+| ID | Description | Worktree | Status |
+|----|-------------|----------|--------|
+| t4-extensions | Extension mechanism tests | `.worktrees/t4-extensions` | 🔄 Active |
+
+Launch with:
+```bash
+cd .worktrees/t4-extensions && claude
+```
 
 ## Pending Tentacles
 
-| ID | Description | Blocked By |
-|----|-------------|------------|
-| t4-extensions | Extension mechanism | Phase 2 validation |
+None - all spawned.
 
 ## Completed Tentacles
 
