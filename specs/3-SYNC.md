@@ -392,13 +392,14 @@ See `formal/README.md` for instructions on running the verification tools.
 
 ## Test Mapping
 
-| Spec Section | Test File |
-|--------------|-----------|
-| Sync message format | `tests/unit/test_diff_encode.py` |
-| Diff encoding | `tests/unit/test_diff_encode.py` |
-| Diff decoding | `tests/unit/test_diff_decode.py` |
-| Idempotent application | `tests/unit/test_diff_apply.py` |
-| Basic sync flow | `tests/protocol/test_sync_flow.py` |
-| Convergence | `tests/protocol/test_sync_convergence.py` |
-| Edge cases | `tests/protocol/test_sync_edge_cases.py` |
-| Property-based tests | `tests/protocol/test_sync_properties.py` |
+| Spec Section | Test File(s) |
+|--------------|--------------|
+| Sync message format | `test_spec_diff_encode.py` |
+| Diff encoding | `test_spec_diff_encode.py` |
+| Diff decoding | `test_spec_diff_decode.py` |
+| Idempotent application | `test_spec_diff_apply.py` |
+| Sync flow | `test_e2e_sync_flow.py` |
+| Convergence | `test_e2e_sync_convergence.py` |
+| Edge cases | `test_spec_sync_edge_cases.py` |
+| Property-based tests | `test_spec_sync_properties.py` |
+| Resilience | `test_e2e_sync_resilience.py` |

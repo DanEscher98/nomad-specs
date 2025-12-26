@@ -590,16 +590,16 @@ See `formal/README.md` for instructions on running the verification tools.
 
 ## Test Mapping
 
-| Spec Section | Test File |
-|--------------|-----------|
-| Handshake | `tests/protocol/test_handshake.py` |
-| Handshake retransmission | `tests/protocol/test_handshake_retransmit.py` |
-| Session ID collision | `tests/protocol/test_session_id.py` |
-| AEAD | `tests/unit/test_crypto.py` |
-| Nonce construction | `tests/unit/test_nonce.py` |
-| Counter exhaustion | `tests/unit/test_counter_limits.py` |
-| Rekeying | `tests/protocol/test_rekeying.py` |
-| Key transition | `tests/protocol/test_key_transition.py` |
-| Anti-replay | `tests/protocol/test_replay_rejection.py` |
-| Epoch exhaustion | `tests/protocol/test_epoch_limits.py` |
-| Invalid auth | `tests/adversarial/test_invalid_auth.py` |
+| Spec Section | Test File(s) |
+|--------------|--------------|
+| Handshake | `test_spec_handshake_flow.py`, `test_server_handshake.py` |
+| Session ID | `test_spec_handshake_flow.py` |
+| AEAD | `test_spec_crypto_aead.py` |
+| Nonce construction | `test_spec_crypto_nonce.py` |
+| Counter exhaustion | `test_server_key_exhaustion.py` |
+| Rekeying | `test_spec_handshake_rekey.py`, `test_server_rekey.py` |
+| Post-Compromise Security | `test_server_pcs_rekey.py` |
+| Anti-replay | `test_spec_replay_attack.py`, `test_server_replay.py` |
+| Epoch exhaustion | `test_server_key_exhaustion.py` |
+| Key compromise | `test_spec_key_compromise.py` |
+| Tamper detection | `test_spec_tamper_detection.py` |

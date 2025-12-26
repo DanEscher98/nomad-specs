@@ -399,15 +399,12 @@ See `formal/README.md` for instructions on running the verification tools.
 
 ## Test Mapping
 
-| Spec Section | Test File |
-|--------------|-----------|
-| Data frame format | `tests/wire/test_wire_format.py` |
-| Frame parsing | `tests/unit/test_frame_encoding.py` |
-| Connection migration | `tests/protocol/test_roaming.py` |
-| Anti-amplification | `tests/adversarial/test_amplification.py` |
-| RTT estimation | `tests/protocol/test_rtt_estimation.py` |
-| Frame pacing | `tests/protocol/test_frame_pacing.py` |
-| Retransmission | `tests/protocol/test_retransmission.py` |
-| Timeout handling | `tests/protocol/test_timeout_handling.py` |
-| MTU compliance | `tests/wire/test_packet_sizes.py` |
-| Error handling | `tests/adversarial/test_malformed_packets.py` |
+| Spec Section | Test File(s) |
+|--------------|--------------|
+| Data frame format | `test_spec_frame_encode.py`, `test_spec_frame_decode.py` |
+| Frame types | `test_spec_frame_types.py` |
+| Connection migration | `test_spec_roaming.py`, `test_server_roaming.py` |
+| Anti-amplification | `test_server_amplification.py` |
+| Keepalive | `test_spec_keepalive.py`, `test_server_keepalive.py` |
+| E2E roaming | `test_e2e_roaming.py` |
+| E2E keepalive | `test_e2e_keepalive.py` |
