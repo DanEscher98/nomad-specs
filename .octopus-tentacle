@@ -1,7 +1,0 @@
-tentacle_id: t11-formal
-description: "Formal verification - ProVerif security, TLA+ state machine"
-branch: tentacle/t11-formal
-scope: "formal/, specs/"
-created: 2025-12-26
-brain_worktree: "/home/danyiel/Working/niceProjects/MoshiMoshi/nomad-specs"
-worktree_path: ".worktrees/t11-formal"
