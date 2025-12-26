@@ -1,0 +1,7 @@
+tentacle_id: t11-formal
+description: "Formal verification (ProVerif + TLA+)"
+branch: tentacle/t11-formal
+scope: "formal/"
+created: 2024-12-20
+brain_worktree: "/home/danyiel/Working/niceProjects/MoshiMoshi/nomad-specs"
+worktree_path: ".worktrees/t11-formal"
