@@ -250,18 +250,28 @@ def update_rtt(sample):
 
 ---
 
-## Frame Pacing
+## Frame Pacing and Congestion Avoidance
 
-To prevent buffer bloat and network congestion, implementations MUST pace frame transmission.
+NOMAD is designed for interactive applications with low bandwidth requirements
+(typically < 100 Kbps). The pacing strategy prioritizes latency over throughput.
+
+### Design Rationale
+
+Per RFC 8085 (UDP Usage Guidelines), applications using UDP SHOULD implement
+congestion control. NOMAD's approach:
+
+1. **Rate limiting**: Hard cap at 50 Hz prevents network flooding
+2. **RTT-adaptive pacing**: `MIN_FRAME_INTERVAL = max(SRTT/2, 20ms)` backs off under congestion
+3. **Batching**: `COLLECTION_INTERVAL = 8ms` reduces frame count without adding latency
 
 ### Timing Constants
 
-| Constant | Value | Description |
-|----------|-------|-------------|
-| `MIN_FRAME_INTERVAL` | `max(SRTT/2, 20ms)` | Minimum time between frames |
-| `COLLECTION_INTERVAL` | 8 ms | Wait after state change before sending |
-| `DELAYED_ACK_TIMEOUT` | 100 ms | Max time to delay ack-only frame |
-| `MAX_FRAME_RATE` | 50 Hz | Hard cap on frame rate |
+| Constant | Value | Rationale |
+|----------|-------|-----------|
+| `MIN_FRAME_INTERVAL` | max(SRTT/2, 20ms) | Scales with network conditions |
+| `COLLECTION_INTERVAL` | 8 ms | Batch rapid state changes |
+| `DELAYED_ACK_TIMEOUT` | 100 ms | Piggyback acks on data frames |
+| `MAX_FRAME_RATE` | 50 Hz | Hard cap; typical interactive apps need < 30 Hz |
 
 ### Frame Pacing Algorithm
 
@@ -297,6 +307,16 @@ def maybe_send_frame():
 - **Collection interval**: Batches rapid state changes (e.g., fast typing) into single frames
 - **Delayed ACK**: 99.9% of acks piggyback on data frames (Mosh measurement)
 - **50 Hz cap**: Human perception threshold; faster updates waste bandwidth
+
+### Limitations
+
+NOMAD does NOT implement:
+- AIMD (additive-increase/multiplicative-decrease)
+- Explicit congestion notification (ECN)
+- Bandwidth probing
+
+For applications requiring high throughput or competing fairly with TCP,
+consider using QUIC or implementing application-layer congestion control.
 
 ---
 

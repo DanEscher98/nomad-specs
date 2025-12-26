@@ -27,6 +27,52 @@ This is the foundation of NOMAD's reliability over unreliable UDP:
 
 ---
 
+## Idempotent Diff Semantics
+
+### Formal Definition
+
+A diff function `d: State × State → Diff` with application function `a: State × Diff → State`
+is **idempotent** if for all states s and diffs d:
+
+```
+a(a(s, d), d) = a(s, d)
+```
+
+NOMAD's convergence theorem additionally requires:
+- **Version monotonicity**: Higher version numbers always supersede lower ones
+- **Base-independence**: Receiver applies diff to reach `sender_state_num`, regardless of `base_state_num`
+
+### Allowed Diff Types
+
+NOMAD supports diff types that satisfy idempotence through one of:
+
+1. **State replacement** (snapshot): `apply(_, diff) = decode(diff)`
+   - Trivially idempotent: setting state to X twice = X
+   - Example: Terminal cell grid overwrite
+
+2. **Last-writer-wins merge**: `apply(state, diff) = {**state, **diff}`
+   - Idempotent for non-conflicting keys
+   - Example: Key-value configuration updates
+
+3. **Delta-CRDT semantics**: Diffs that form a join-semilattice
+   - Reference: Almeida et al., "Delta State Replicated Data Types" (2018)
+   - Example: G-Counter increments, OR-Set additions
+
+### Convergence Guarantee
+
+**Theorem**: Given idempotent diffs and version monotonicity, arbitrary packet
+reordering, duplication, and loss (with eventual delivery) results in state convergence.
+
+**Proof sketch**: See `formal/tlaplus/SyncLayer.tla` invariants:
+- `MonotonicStateNums`: Versions only increase
+- `PeerNeverAhead`: Receiver tracks sender's highest version
+- Idempotence ensures duplicate application is harmless
+
+> **Note**: Composition-based diffs (e.g., "insert at position N") are NOT idempotent
+> and require application-layer transformation. NOMAD's sync layer assumes idempotence.
+
+---
+
 ## State Type Interface
 
 A valid NOMAD state type MUST implement:

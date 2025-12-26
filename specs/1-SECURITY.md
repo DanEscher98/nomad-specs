@@ -257,24 +257,24 @@ All post-handshake frames use XChaCha20-Poly1305 AEAD.
 packet
   +32: "Epoch (4 bytes)"
   +8: "Direction"
-  +88: "Zeros (11 bytes)"
+  +88: "Reserved (11 bytes)"
   +64: "Counter (8 bytes)"
 ```
 
-| Field | Value |
-|-------|-------|
-| Epoch | Current epoch number, starts at 0 |
-| Direction | `0x00` = Initiator→Responder, `0x01` = Responder→Initiator |
-| Zeros | Padding |
-| Counter | Per-direction frame counter, starts at 0 |
+| Field | Size | Description |
+|-------|------|-------------|
+| Epoch | 4 bytes (LE32) | Current epoch number, starts at 0 |
+| Direction | 1 byte | `0x00` = I→R, `0x01` = R→I |
+| Reserved | 11 bytes | Zero for v1; future extensions |
+| Counter | 8 bytes (LE64) | Per-direction message counter, starts at 0 |
 
-**Rationale for 11-byte zero field:**
+**Reserved field**: The 11-byte zero field provides:
+1. Domain separation between epochs and directions
+2. Space for future protocol extensions (e.g., sub-sessions, QoS flags)
+3. Alignment to 24 bytes for XChaCha20 nonce requirement
 
-The nonce structure totals 24 bytes (4+1+11+8) to match XChaCha20's nonce requirement.
-The zero padding:
-1. Ensures domain separation between epochs and directions
-2. Provides room for future extensions without protocol changes
-3. Maintains constant nonce size for implementation simplicity
+Implementations MUST set reserved bytes to zero for v1. Receivers SHOULD
+accept frames with non-zero reserved bytes (forward compatibility).
 
 The direction byte prevents counter collision between initiator and responder traffic
 without requiring additional synchronization state.
@@ -306,13 +306,22 @@ Sessions MUST rekey periodically for forward secrecy.
 
 ### Timing Constants
 
-| Constant | Value | Description |
-|----------|-------|-------------|
-| `REKEY_AFTER_TIME` | 120 seconds | Initiate rekey after this time |
-| `REKEY_AFTER_MESSAGES` | 2^60 | Initiate rekey after this many frames |
-| `REJECT_AFTER_TIME` | 180 seconds | Hard limit, reject old keys |
+| Constant | Value | Rationale |
+|----------|-------|-----------|
+| `REKEY_AFTER_TIME` | 3600 seconds (1 hour) | Balance forward secrecy vs overhead |
+| `REKEY_AFTER_MESSAGES` | 2^32 | ~4 billion frames; at 50 Hz = 2.7 years |
+| `REJECT_AFTER_TIME` | 3660 seconds | REKEY + 60s grace period |
 | `REJECT_AFTER_MESSAGES` | 2^64 - 1 | **HARD LIMIT** - MUST terminate session |
-| `OLD_KEY_RETENTION` | 5 seconds | Keep old keys after rekey for late packets |
+| `OLD_KEY_RETENTION` | max(5 × SRTT, 30s) | Adaptive; covers worst-case in-flight packets |
+
+**Adaptive OLD_KEY_RETENTION**: Implementations SHOULD retain old keys for at least
+5× the smoothed RTT to handle delayed packets. The 30-second minimum accounts for
+mobile network handoffs and NAT rebinding. Implementations MAY use longer retention
+(e.g., 60s) at the cost of delayed key destruction.
+
+**Time vs message-based rekeying**: Implementations SHOULD rekey when EITHER threshold
+is reached, whichever comes first. Time-based rekeying is primary; message-based is
+a safety net for high-throughput sessions.
 
 ### Counter Exhaustion
 
@@ -440,6 +449,32 @@ MUST be retained for the session lifetime because it is needed for every subsequ
 rekey operation. It provides the "static anchor" that prevents active attackers
 from taking over a session.
 
+### Adversary Model for Post-Compromise Security
+
+**Threat scenario**: Active attacker who has compromised session keys from epoch N
+attempts to maintain access after rekeying to epoch N+1.
+
+**Assumed compromised**:
+- Session keys (k_i, k_r) from epoch N
+- Ephemeral private keys from epoch N (after use)
+- All encrypted traffic from epoch N
+
+**Assumed uncompromised**:
+- Static private keys (s_i, s_r)
+- `rekey_auth_key` (derived from static DH during handshake)
+
+**Security guarantee**: With the above assumptions, the attacker CANNOT:
+1. Derive epoch N+1 session keys
+2. Inject valid rekey messages accepted by either party
+3. Decrypt epoch N+1 traffic
+
+**Caveat**: If static private keys are compromised, PCS cannot be provided.
+The attacker could compute `rekey_auth_key = HKDF(DH(s_i, S_r), ...)` and
+derive all future session keys. Static key compromise requires session termination
+and key rotation.
+
+> See `formal/proverif/nomad_rekey_fixed.pv` for ProVerif model and queries.
+
 ---
 
 ## Anti-Replay Protection
@@ -489,6 +524,54 @@ The `is_definite_replay()` check MUST be read-only:
 - Nonce above window → **pass through** (might be valid, verify first)
 
 Only `mark_seen()` advances the window, and only for authenticated packets.
+
+### Sliding Window Algorithm
+
+Each endpoint maintains per-direction replay state:
+
+```python
+class ReplayWindow:
+    highest_seen: uint64 = 0      # Highest valid nonce received
+    bitmap: BitArray[2048]        # Tracks seen nonces in window
+
+def check_and_mark(nonce: uint64) -> bool:
+    """Returns True if nonce is valid (not replay), False otherwise."""
+
+    # Step 1: Below window floor → definite replay
+    window_floor = highest_seen - len(bitmap) + 1
+    if nonce < window_floor:
+        return False  # Too old
+
+    # Step 2: Already seen → replay
+    if nonce <= highest_seen:
+        index = nonce - window_floor
+        if bitmap[index]:
+            return False  # Already seen
+
+    # Step 3: AEAD verification happens HERE (caller responsibility)
+    # Only proceed if AEAD succeeds
+
+    # Step 4: Mark as seen and advance window if needed
+    if nonce > highest_seen:
+        # Advance window
+        shift = nonce - highest_seen
+        bitmap.shift_left(shift)
+        highest_seen = nonce
+
+    index = nonce - (highest_seen - len(bitmap) + 1)
+    bitmap[index] = True
+    return True
+```
+
+**Critical ordering**: Steps 1-2 (cheap read-only check) MUST occur before AEAD
+verification. Step 4 (window update) MUST occur only after successful AEAD.
+This prevents attackers from advancing the window with forged high-nonce packets.
+
+**Epoch handling**: Each epoch has an independent replay window. On epoch transition,
+the new epoch's window starts empty with `highest_seen = 0`.
+
+**Memory bounds**: 2048-bit bitmap = 256 bytes per direction per epoch.
+With OLD_KEY_RETENTION = 30s and 2 epochs active, total = 1 KB per session.
 
 ### Epoch Protection
 
