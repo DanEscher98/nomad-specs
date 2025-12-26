@@ -197,11 +197,41 @@ ci-impl impl_path:
 # Formal Verification
 # =============================================================================
 
+# Install formal verification tools
+formal-install:
+    @echo "Installing formal verification tools..."
+    @# ProVerif (CLI only, no GUI)
+    @if ! which proverif > /dev/null 2>&1; then \
+        echo "Installing ProVerif 2.05 (CLI only)..."; \
+        cd /tmp && \
+        curl -sLO https://bblanche.gitlabpages.inria.fr/proverif/proverif2.05.tar.gz && \
+        tar xzf proverif2.05.tar.gz && \
+        cd proverif2.05 && \
+        ocamlopt -version > /dev/null 2>&1 || (echo "Error: OCaml not found. Install with: sudo dnf install ocaml ocaml-findlib" && exit 1) && \
+        make -j4 proverif proveriftotex 2>/dev/null || ./build && \
+        mkdir -p ~/.local/bin && \
+        cp proverif proveriftotex ~/.local/bin/ && \
+        echo "ProVerif installed to ~/.local/bin/proverif"; \
+    else \
+        echo "ProVerif already installed: $(which proverif)"; \
+    fi
+    @# TLA+ tools
+    @if [ ! -f ~/.local/lib/tlaplus/tla2tools.jar ]; then \
+        echo "Installing TLA+ tools..."; \
+        mkdir -p ~/.local/lib/tlaplus && \
+        curl -sL -o ~/.local/lib/tlaplus/tla2tools.jar \
+            https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar && \
+        echo "TLA+ tools installed to ~/.local/lib/tlaplus/tla2tools.jar"; \
+    else \
+        echo "TLA+ tools already installed"; \
+    fi
+    @echo "Formal verification tools ready"
+
 # Run all formal verification (ProVerif + TLA+)
-formal-all: formal-proverif formal-tlaplus
+formal-all: _check-formal-deps formal-proverif formal-tlaplus
 
 # Run all ProVerif models
-formal-proverif:
+formal-proverif: _check-proverif
     @echo "Running ProVerif verification..."
     proverif formal/proverif/nomad_handshake.pv
     proverif formal/proverif/nomad_replay.pv
@@ -209,17 +239,17 @@ formal-proverif:
     @echo "ProVerif verification complete"
 
 # Run specific ProVerif model
-formal-proverif-handshake:
+formal-proverif-handshake: _check-proverif
     proverif formal/proverif/nomad_handshake.pv
 
-formal-proverif-replay:
+formal-proverif-replay: _check-proverif
     proverif formal/proverif/nomad_replay.pv
 
-formal-proverif-rekey:
+formal-proverif-rekey: _check-proverif
     proverif formal/proverif/nomad_rekey.pv
 
 # Run all TLA+ models
-formal-tlaplus: _check-java
+formal-tlaplus: _check-tlaplus
     @echo "Running TLA+ verification..."
     java -XX:+UseParallelGC -cp ~/.local/lib/tlaplus/tla2tools.jar tlc2.TLC \
         -config formal/tlaplus/RekeyStateMachine.cfg formal/tlaplus/RekeyStateMachine.tla
@@ -230,22 +260,29 @@ formal-tlaplus: _check-java
     @echo "TLA+ verification complete"
 
 # Run specific TLA+ model
-formal-tlaplus-rekey: _check-java
+formal-tlaplus-rekey: _check-tlaplus
     java -XX:+UseParallelGC -cp ~/.local/lib/tlaplus/tla2tools.jar tlc2.TLC \
         -config formal/tlaplus/RekeyStateMachine.cfg formal/tlaplus/RekeyStateMachine.tla
 
-formal-tlaplus-sync: _check-java
+formal-tlaplus-sync: _check-tlaplus
     java -XX:+UseParallelGC -cp ~/.local/lib/tlaplus/tla2tools.jar tlc2.TLC \
         -config formal/tlaplus/SyncLayer.cfg formal/tlaplus/SyncLayer.tla
 
-formal-tlaplus-roaming: _check-java
+formal-tlaplus-roaming: _check-tlaplus
     java -XX:+UseParallelGC -cp ~/.local/lib/tlaplus/tla2tools.jar tlc2.TLC \
         -config formal/tlaplus/Roaming.cfg formal/tlaplus/Roaming.tla
 
+# Check all formal verification dependencies
+_check-formal-deps: _check-proverif _check-tlaplus
+
+# Check ProVerif is installed
+_check-proverif:
+    @which proverif > /dev/null 2>&1 || (echo "Error: ProVerif not found. Run 'just formal-install' first." && exit 1)
+
 # Check TLA+ tools are installed
-_check-java:
-    @which java > /dev/null || (echo "Error: Java not found. Install with: sudo dnf install java-21-openjdk" && exit 1)
-    @test -f ~/.local/lib/tlaplus/tla2tools.jar || (echo "Error: TLA+ tools not found. See formal/README.md for installation." && exit 1)
+_check-tlaplus:
+    @which java > /dev/null 2>&1 || (echo "Error: Java not found. Install with: sudo dnf install java-21-openjdk" && exit 1)
+    @test -f ~/.local/lib/tlaplus/tla2tools.jar || (echo "Error: TLA+ tools not found. Run 'just formal-install' first." && exit 1)
 
 # =============================================================================
 # Documentation
