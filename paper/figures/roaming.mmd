@@ -1,0 +1,16 @@
+%%{init: {'theme': 'neutral'}}%%
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+
+    Note over C: Connected via WiFi
+    C->>S: Data frame (IP: 192.168.1.100)
+
+    Note over C: Switch to cellular
+    C->>S: Data frame (IP: 10.0.0.50)
+
+    Note over S: Verify AEAD tag with session keys
+    Note over S: Valid → Update remote_endpoint
+    S->>C: Data frame (to new IP: 10.0.0.50)
+
+    Note over C,S: Connection continues seamlessly

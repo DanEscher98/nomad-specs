@@ -1,0 +1,18 @@
+%%{init: {'theme': 'neutral'}}%%
+sequenceDiagram
+    participant S as Server (State: A)
+    participant C as Client (State: A')
+
+    Note over S: State changes: A → B
+    S->>C: Diff(A→B), version=2
+
+    Note over S: State changes: B → C
+    S->>C: Diff(B→C), version=3
+
+    Note over C: Receives version 3 first (UDP reordering)
+    Note over C: Apply diff, update peer_state_num=3
+
+    Note over C: Receives version 2 (late)
+    Note over C: 2 < peer_state_num(3), skip (idempotent)
+
+    Note over S,C: States converged to C
