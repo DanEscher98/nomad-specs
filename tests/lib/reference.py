@@ -48,6 +48,28 @@ DATA_FRAME_HEADER_SIZE = 16
 # Sync message header size (before diff payload)
 SYNC_MESSAGE_HEADER_SIZE = 28  # 3 * uint64 + uint32
 
+# =============================================================================
+# Extension Constants (from EXTENSIONS.md)
+# =============================================================================
+
+# Extension types
+EXT_COMPRESSION = 0x0001
+EXT_SCROLLBACK = 0x0002
+EXT_PREDICTION = 0x0003
+EXT_MULTIPLEX = 0x0004
+EXT_POST_QUANTUM = 0x0005
+
+# Extension header sizes
+EXT_HEADER_SIZE = 4  # Type (2) + Length (2)
+
+# Compression constants
+COMPRESSION_MIN_SIZE = 64  # Minimum size to attempt compression
+COMPRESSION_FLAG_UNCOMPRESSED = 0x00
+COMPRESSION_FLAG_COMPRESSED = 0x01
+COMPRESSION_LEVEL_DEFAULT = 3
+COMPRESSION_LEVEL_MIN = 1
+COMPRESSION_LEVEL_MAX = 22
+
 
 # =============================================================================
 # Data Classes for Parsed Messages
@@ -103,6 +125,241 @@ class NonceComponents:
     epoch: int
     direction: int  # 0 = initiator->responder, 1 = responder->initiator
     counter: int
+
+
+@dataclass
+class Extension:
+    """Parsed TLV extension."""
+
+    ext_type: int  # LE16 extension type
+    data: bytes  # Extension-specific data
+
+    def __post_init__(self) -> None:
+        if self.ext_type < 0 or self.ext_type > 0xFFFF:
+            raise ValueError(f"Extension type must be 0-65535, got {self.ext_type}")
+        if len(self.data) > 0xFFFF:
+            raise ValueError(f"Extension data too large: {len(self.data)} > 65535")
+
+
+@dataclass
+class CompressionConfig:
+    """Compression extension configuration."""
+
+    level: int = COMPRESSION_LEVEL_DEFAULT
+
+    def __post_init__(self) -> None:
+        if self.level < COMPRESSION_LEVEL_MIN or self.level > COMPRESSION_LEVEL_MAX:
+            raise ValueError(
+                f"Compression level must be {COMPRESSION_LEVEL_MIN}-{COMPRESSION_LEVEL_MAX}, "
+                f"got {self.level}"
+            )
+
+
+# =============================================================================
+# Extension Encoding/Decoding (TLV Format)
+# =============================================================================
+
+
+def encode_extension(ext: Extension) -> bytes:
+    """Encode a single extension in TLV format.
+
+    Layout:
+    - Type (2 bytes, LE16)
+    - Length (2 bytes, LE16)
+    - Data (variable)
+
+    Args:
+        ext: Extension to encode
+
+    Returns:
+        Encoded extension bytes
+    """
+    return struct.pack("<HH", ext.ext_type, len(ext.data)) + ext.data
+
+
+def decode_extension(data: bytes, offset: int = 0) -> tuple[Extension, int]:
+    """Decode a single extension from TLV format.
+
+    Args:
+        data: Buffer containing extension(s)
+        offset: Starting offset in buffer
+
+    Returns:
+        Tuple of (Extension, bytes consumed)
+
+    Raises:
+        ValueError: If extension is malformed or truncated
+    """
+    if len(data) - offset < EXT_HEADER_SIZE:
+        raise ValueError(f"Extension header truncated: {len(data) - offset} < {EXT_HEADER_SIZE}")
+
+    ext_type, ext_len = struct.unpack_from("<HH", data, offset)
+
+    if len(data) - offset - EXT_HEADER_SIZE < ext_len:
+        raise ValueError(
+            f"Extension data truncated: have {len(data) - offset - EXT_HEADER_SIZE}, need {ext_len}"
+        )
+
+    ext_data = data[offset + EXT_HEADER_SIZE : offset + EXT_HEADER_SIZE + ext_len]
+    return Extension(ext_type=ext_type, data=ext_data), EXT_HEADER_SIZE + ext_len
+
+
+def encode_extension_list(extensions: list[Extension]) -> bytes:
+    """Encode a list of extensions.
+
+    Args:
+        extensions: List of extensions to encode
+
+    Returns:
+        Concatenated encoded extensions
+    """
+    return b"".join(encode_extension(ext) for ext in extensions)
+
+
+def decode_extension_list(data: bytes) -> list[Extension]:
+    """Decode a list of extensions from buffer.
+
+    Args:
+        data: Buffer containing zero or more extensions
+
+    Returns:
+        List of decoded extensions
+
+    Raises:
+        ValueError: If any extension is malformed
+    """
+    extensions: list[Extension] = []
+    offset = 0
+
+    while offset < len(data):
+        ext, consumed = decode_extension(data, offset)
+        extensions.append(ext)
+        offset += consumed
+
+    return extensions
+
+
+def negotiate_extensions(
+    offered: list[Extension],
+    supported: list[Extension],
+) -> list[Extension]:
+    """Compute intersection of offered and supported extensions.
+
+    Args:
+        offered: Extensions offered by initiator
+        supported: Extensions supported by responder
+
+    Returns:
+        List of mutually supported extensions (preserves offered order)
+    """
+    supported_types = {ext.ext_type for ext in supported}
+    return [ext for ext in offered if ext.ext_type in supported_types]
+
+
+# =============================================================================
+# Compression Extension (0x0001)
+# =============================================================================
+
+
+def encode_compression_config(config: CompressionConfig) -> bytes:
+    """Encode compression extension negotiation data.
+
+    Layout:
+    - Level (1 byte)
+    - Reserved (1 byte, must be 0)
+
+    Args:
+        config: Compression configuration
+
+    Returns:
+        2-byte negotiation data
+    """
+    return struct.pack("<BB", config.level, 0)
+
+
+def decode_compression_config(data: bytes) -> CompressionConfig:
+    """Decode compression extension negotiation data.
+
+    Args:
+        data: 2-byte negotiation data
+
+    Returns:
+        CompressionConfig
+
+    Raises:
+        ValueError: If data is malformed
+    """
+    if len(data) < 2:
+        raise ValueError(f"Compression config too short: {len(data)} < 2")
+
+    level = data[0]
+    # Ignore reserved byte
+
+    return CompressionConfig(level=level)
+
+
+def compress_payload(
+    data: bytes,
+    *,
+    level: int = COMPRESSION_LEVEL_DEFAULT,
+    min_size: int = COMPRESSION_MIN_SIZE,
+) -> bytes:
+    """Compress a payload with zstd, prepending compression flag.
+
+    Per spec:
+    - Payloads < min_size are not compressed
+    - If compression enlarges data, uncompressed is used
+    - Result is prefixed with 0x00 (uncompressed) or 0x01 (compressed)
+
+    Args:
+        data: Payload to compress
+        level: zstd compression level (1-22)
+        min_size: Minimum size to attempt compression
+
+    Returns:
+        Prefixed payload (flag byte + data)
+    """
+    import zstandard as zstd
+
+    if len(data) < min_size:
+        return bytes([COMPRESSION_FLAG_UNCOMPRESSED]) + data
+
+    compressor = zstd.ZstdCompressor(level=level)
+    compressed = compressor.compress(data)
+
+    if len(compressed) < len(data):
+        return bytes([COMPRESSION_FLAG_COMPRESSED]) + compressed
+    else:
+        return bytes([COMPRESSION_FLAG_UNCOMPRESSED]) + data
+
+
+def decompress_payload(data: bytes) -> bytes:
+    """Decompress a payload based on compression flag.
+
+    Args:
+        data: Prefixed payload (flag byte + data)
+
+    Returns:
+        Decompressed payload
+
+    Raises:
+        ValueError: If flag is invalid or decompression fails
+    """
+    import zstandard as zstd
+
+    if len(data) < 1:
+        raise ValueError("Payload too short: missing compression flag")
+
+    flag = data[0]
+    payload = data[1:]
+
+    if flag == COMPRESSION_FLAG_UNCOMPRESSED:
+        return payload
+    elif flag == COMPRESSION_FLAG_COMPRESSED:
+        decompressor = zstd.ZstdDecompressor()
+        return decompressor.decompress(payload)
+    else:
+        raise ValueError(f"Invalid compression flag: 0x{flag:02x}")
 
 
 # =============================================================================
@@ -501,6 +758,22 @@ class NomadCodec:
     AEAD_TAG_SIZE = AEAD_TAG_SIZE
     AEAD_NONCE_SIZE = AEAD_NONCE_SIZE
 
+    # Extension constants
+    EXT_COMPRESSION = EXT_COMPRESSION
+    EXT_SCROLLBACK = EXT_SCROLLBACK
+    EXT_PREDICTION = EXT_PREDICTION
+    EXT_MULTIPLEX = EXT_MULTIPLEX
+    EXT_POST_QUANTUM = EXT_POST_QUANTUM
+    EXT_HEADER_SIZE = EXT_HEADER_SIZE
+
+    # Compression constants
+    COMPRESSION_MIN_SIZE = COMPRESSION_MIN_SIZE
+    COMPRESSION_FLAG_UNCOMPRESSED = COMPRESSION_FLAG_UNCOMPRESSED
+    COMPRESSION_FLAG_COMPRESSED = COMPRESSION_FLAG_COMPRESSED
+    COMPRESSION_LEVEL_DEFAULT = COMPRESSION_LEVEL_DEFAULT
+    COMPRESSION_LEVEL_MIN = COMPRESSION_LEVEL_MIN
+    COMPRESSION_LEVEL_MAX = COMPRESSION_LEVEL_MAX
+
     # AEAD methods
     @staticmethod
     def encrypt(key: bytes, nonce: bytes, plaintext: bytes, aad: bytes) -> bytes:
@@ -660,3 +933,58 @@ class NomadCodec:
     def deterministic_bytes(seed: str, length: int) -> bytes:
         """Generate deterministic bytes for testing."""
         return deterministic_bytes(seed, length)
+
+    # Extension methods
+    @staticmethod
+    def encode_extension(ext: Extension) -> bytes:
+        """Encode a single extension in TLV format."""
+        return encode_extension(ext)
+
+    @staticmethod
+    def decode_extension(data: bytes, offset: int = 0) -> tuple[Extension, int]:
+        """Decode a single extension from TLV format."""
+        return decode_extension(data, offset)
+
+    @staticmethod
+    def encode_extension_list(extensions: list[Extension]) -> bytes:
+        """Encode a list of extensions."""
+        return encode_extension_list(extensions)
+
+    @staticmethod
+    def decode_extension_list(data: bytes) -> list[Extension]:
+        """Decode a list of extensions from buffer."""
+        return decode_extension_list(data)
+
+    @staticmethod
+    def negotiate_extensions(
+        offered: list[Extension],
+        supported: list[Extension],
+    ) -> list[Extension]:
+        """Compute intersection of offered and supported extensions."""
+        return negotiate_extensions(offered, supported)
+
+    # Compression methods
+    @staticmethod
+    def encode_compression_config(config: CompressionConfig) -> bytes:
+        """Encode compression extension negotiation data."""
+        return encode_compression_config(config)
+
+    @staticmethod
+    def decode_compression_config(data: bytes) -> CompressionConfig:
+        """Decode compression extension negotiation data."""
+        return decode_compression_config(data)
+
+    @staticmethod
+    def compress_payload(
+        data: bytes,
+        *,
+        level: int = COMPRESSION_LEVEL_DEFAULT,
+        min_size: int = COMPRESSION_MIN_SIZE,
+    ) -> bytes:
+        """Compress a payload with zstd, prepending compression flag."""
+        return compress_payload(data, level=level, min_size=min_size)
+
+    @staticmethod
+    def decompress_payload(data: bytes) -> bytes:
+        """Decompress a payload based on compression flag."""
+        return decompress_payload(data)
