@@ -2,6 +2,19 @@
 
 This directory contains formal models for verifying security and correctness properties of the NOMAD protocol.
 
+> **Security Findings**: See [SECURITY_FINDINGS.md](SECURITY_FINDINGS.md) for verification results and discovered limitations.
+
+## Quick Start
+
+```bash
+# Run all formal verification (from project root)
+just formal-all
+
+# Or run separately
+just formal-proverif  # Cryptographic properties
+just formal-tlaplus   # State machine correctness
+```
+
 ## Overview
 
 | Tool | Purpose | Files |
@@ -16,13 +29,23 @@ ProVerif is a cryptographic protocol verifier that can prove security properties
 ### Installation
 
 ```bash
+# Fedora/RHEL (build from source)
+sudo dnf install ocaml ocaml-findlib
+cd /tmp
+curl -LO https://bblanche.gitlabpages.inria.fr/proverif/proverif2.05.tar.gz
+tar xzf proverif2.05.tar.gz
+cd proverif2.05
+./build
+sudo cp proverif proveriftotex /usr/local/bin/
+
 # Ubuntu/Debian
-apt install proverif
+sudo apt install proverif
 
 # macOS
 brew install proverif
 
-# Or from source: https://proverif.inria.fr/
+# Verify installation
+proverif --version
 ```
 
 ### Models
@@ -36,16 +59,16 @@ brew install proverif
 ### Running
 
 ```bash
-cd formal/proverif
+# Verify individual models
+proverif formal/proverif/nomad_handshake.pv
+proverif formal/proverif/nomad_rekey.pv
+proverif formal/proverif/nomad_replay.pv
 
-# Verify handshake security
-proverif nomad_handshake.pv
-
-# Verify forward secrecy
-proverif nomad_rekey.pv
-
-# Verify replay protection
-proverif nomad_replay.pv
+# Or use Justfile commands (from project root)
+just formal-proverif           # Run all ProVerif models
+just formal-proverif-handshake # Run handshake only
+just formal-proverif-rekey     # Run rekey only
+just formal-proverif-replay    # Run replay only
 ```
 
 ### Expected Output
@@ -93,12 +116,26 @@ TLA+ is a formal specification language for modeling concurrent and distributed 
 ### Installation
 
 ```bash
-# Download TLA+ Toolbox
-# https://github.com/tlaplus/tlaplus/releases
+# Install Java (required for TLA+ tools)
+# Fedora/RHEL
+sudo dnf install java-21-openjdk
 
-# Or use command-line tools
-# https://github.com/tlaplus/tlaplus/releases (tla2tools.jar)
+# Ubuntu/Debian
+sudo apt install openjdk-21-jre
+
+# macOS
+brew install openjdk@21
+
+# Download TLA+ command-line tools
+mkdir -p ~/.local/lib/tlaplus
+curl -L -o ~/.local/lib/tlaplus/tla2tools.jar \
+    https://github.com/tlaplus/tlaplus/releases/latest/download/tla2tools.jar
+
+# Verify installation
+java -cp ~/.local/lib/tlaplus/tla2tools.jar tlc2.TLC -h
 ```
+
+**Optional**: Download [TLA+ Toolbox IDE](https://github.com/tlaplus/tlaplus/releases) for graphical model checker.
 
 ### Specifications
 
@@ -111,12 +148,17 @@ TLA+ is a formal specification language for modeling concurrent and distributed 
 ### Running
 
 ```bash
-cd formal/tlaplus
-
 # Using TLC model checker (command line)
-java -jar tla2tools.jar -config SyncLayer.cfg SyncLayer.tla
+java -XX:+UseParallelGC -cp ~/.local/lib/tlaplus/tla2tools.jar tlc2.TLC \
+    -config formal/tlaplus/SyncLayer.cfg formal/tlaplus/SyncLayer.tla
 
-# Or open in TLA+ Toolbox and run Model Checker
+# Or use Justfile commands (from project root)
+just formal-tlaplus          # Run all TLA+ models
+just formal-tlaplus-sync     # Run SyncLayer only
+just formal-tlaplus-rekey    # Run RekeyStateMachine only
+just formal-tlaplus-roaming  # Run Roaming only
+
+# Or open in TLA+ Toolbox IDE and run Model Checker
 ```
 
 ### Configuration Files

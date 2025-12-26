@@ -55,3 +55,9 @@ build/
 # Temp
 *.tmp
 *.bak
+
+# TLA+ model checker artifacts
+*_TTrace_*.bin
+*_TTrace_*.tla
+formal/tlaplus/states/
+states/

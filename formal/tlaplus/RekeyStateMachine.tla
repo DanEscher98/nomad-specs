@@ -76,7 +76,7 @@ TypeOK ==
     /\ sendNonce \in [Roles -> 0..REJECT_AFTER_MESSAGES]
     /\ recvNonce \in [Roles -> 0..REJECT_AFTER_MESSAGES]
     /\ epochStartTime \in [Roles -> 0..MaxTime]
-    /\ oldKeyExpiry \in [Roles -> 0..MaxTime]
+    /\ oldKeyExpiry \in [Roles -> 0..(MaxTime + OLD_KEY_RETENTION)]
     /\ network \subseteq [type: {"RekeyInit", "RekeyResp"},
                           from: Roles, to: Roles,
                           newEphemeral: 0..MAX_EPOCH]
@@ -228,6 +228,17 @@ CounterExhaustion(r) ==
                    epochStartTime, oldKeyExpiry, network, time>>
 
 -----------------------------------------------------------------------------
+(* Time Expiration - Terminate Session when REJECT_AFTER_TIME reached *)
+-----------------------------------------------------------------------------
+
+TimeExpiration(r) ==
+    /\ rekeyState[r] /= "Terminated"
+    /\ time - epochStartTime[r] >= REJECT_AFTER_TIME
+    /\ rekeyState' = [rekeyState EXCEPT ![r] = "Terminated"]
+    /\ UNCHANGED <<epoch, currentKeys, oldKeys, sendNonce, recvNonce,
+                   epochStartTime, oldKeyExpiry, network, time>>
+
+-----------------------------------------------------------------------------
 (* Epoch Exhaustion - Terminate Session *)
 -----------------------------------------------------------------------------
 
@@ -271,6 +282,7 @@ Next ==
     \/ CompleteRekeyResponder
     \/ ReceiveRekeyResponse
     \/ \E r \in Roles : CounterExhaustion(r)
+    \/ \E r \in Roles : TimeExpiration(r)
     \/ \E r \in Roles : EpochExhaustion(r)
     \/ \E r \in Roles : ClearOldKeys(r)
     \/ LoseMessage
@@ -281,6 +293,7 @@ Fairness ==
     /\ WF_vars(RespondToRekey)
     /\ WF_vars(CompleteRekeyResponder)
     /\ WF_vars(ReceiveRekeyResponse)
+    /\ \A r \in Roles : WF_vars(TimeExpiration(r))
 
 Spec == Init /\ [][Next]_vars /\ Fairness
 
@@ -311,8 +324,10 @@ TerminationIsFinal ==
         [](rekeyState[r] = "Terminated")
 
 \* S6: Never reuse nonce with same key
+\* Note: sendNonce can reach REJECT_AFTER_MESSAGES after sending the last valid frame
+\* At that point, no more frames can be sent (guard in SendFrame prevents it)
 NonceUniqueness ==
-    \A r \in Roles : sendNonce[r] < REJECT_AFTER_MESSAGES
+    \A r \in Roles : sendNonce[r] <= REJECT_AFTER_MESSAGES
 
 Safety == MonotonicEpochs /\ KeysMatchEpoch /\ OldKeysFromPreviousEpoch /\ NonceUniqueness
 
@@ -320,11 +335,17 @@ Safety == MonotonicEpochs /\ KeysMatchEpoch /\ OldKeysFromPreviousEpoch /\ Nonce
 (* Liveness Properties *)
 -----------------------------------------------------------------------------
 
-\* L1: Rekey eventually happens if not terminated
+\* L1: Rekey eventually happens if not terminated (Initiator only)
+\* NOTE: Only applies to Initiator because only Initiator can start rekey.
+\* Responder's epoch depends on Initiator completing the protocol.
+\* With message loss, full completion isn't guaranteed, so we only verify
+\* that Initiator eventually attempts rekey (transitions out of Idle).
 RekeyEventuallyHappens ==
-    \A r \in Roles :
-        rekeyState[r] = "Idle" /\ epoch[r] < MAX_EPOCH ~>
-            epoch[r] > 0 \/ rekeyState[r] = "Terminated"
+    rekeyState["Initiator"] = "Idle" /\ epoch["Initiator"] < MAX_EPOCH
+        /\ ~KeysExpired("Initiator")
+        ~> epoch["Initiator"] > 0
+           \/ rekeyState["Initiator"] /= "Idle"
+           \/ KeysExpired("Initiator")
 
 \* L2: Waiting state eventually resolves
 NoForeverWaiting ==

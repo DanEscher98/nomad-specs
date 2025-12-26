@@ -62,7 +62,8 @@ fun hkdf_expand(bitstring, bitstring): bitstring.
 (* Concatenation *)
 fun concat(bitstring, bitstring): bitstring.
 reduc forall x: bitstring, y: bitstring;
-  fst(concat(x, y)) = x;
+  fst(concat(x, y)) = x.
+reduc forall x: bitstring, y: bitstring;
   snd(concat(x, y)) = y.
 
 (* Convert pubkey to bitstring for hashing *)

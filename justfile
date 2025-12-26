@@ -194,6 +194,60 @@ ci-impl impl_path:
     SERVER_CONTEXT={{ impl_path }} CLIENT_CONTEXT={{ impl_path }} just test
 
 # =============================================================================
+# Formal Verification
+# =============================================================================
+
+# Run all formal verification (ProVerif + TLA+)
+formal-all: formal-proverif formal-tlaplus
+
+# Run all ProVerif models
+formal-proverif:
+    @echo "Running ProVerif verification..."
+    proverif formal/proverif/nomad_handshake.pv
+    proverif formal/proverif/nomad_replay.pv
+    proverif formal/proverif/nomad_rekey.pv
+    @echo "ProVerif verification complete"
+
+# Run specific ProVerif model
+formal-proverif-handshake:
+    proverif formal/proverif/nomad_handshake.pv
+
+formal-proverif-replay:
+    proverif formal/proverif/nomad_replay.pv
+
+formal-proverif-rekey:
+    proverif formal/proverif/nomad_rekey.pv
+
+# Run all TLA+ models
+formal-tlaplus: _check-java
+    @echo "Running TLA+ verification..."
+    java -XX:+UseParallelGC -cp ~/.local/lib/tlaplus/tla2tools.jar tlc2.TLC \
+        -config formal/tlaplus/RekeyStateMachine.cfg formal/tlaplus/RekeyStateMachine.tla
+    java -XX:+UseParallelGC -cp ~/.local/lib/tlaplus/tla2tools.jar tlc2.TLC \
+        -config formal/tlaplus/SyncLayer.cfg formal/tlaplus/SyncLayer.tla
+    java -XX:+UseParallelGC -cp ~/.local/lib/tlaplus/tla2tools.jar tlc2.TLC \
+        -config formal/tlaplus/Roaming.cfg formal/tlaplus/Roaming.tla
+    @echo "TLA+ verification complete"
+
+# Run specific TLA+ model
+formal-tlaplus-rekey: _check-java
+    java -XX:+UseParallelGC -cp ~/.local/lib/tlaplus/tla2tools.jar tlc2.TLC \
+        -config formal/tlaplus/RekeyStateMachine.cfg formal/tlaplus/RekeyStateMachine.tla
+
+formal-tlaplus-sync: _check-java
+    java -XX:+UseParallelGC -cp ~/.local/lib/tlaplus/tla2tools.jar tlc2.TLC \
+        -config formal/tlaplus/SyncLayer.cfg formal/tlaplus/SyncLayer.tla
+
+formal-tlaplus-roaming: _check-java
+    java -XX:+UseParallelGC -cp ~/.local/lib/tlaplus/tla2tools.jar tlc2.TLC \
+        -config formal/tlaplus/Roaming.cfg formal/tlaplus/Roaming.tla
+
+# Check TLA+ tools are installed
+_check-java:
+    @which java > /dev/null || (echo "Error: Java not found. Install with: sudo dnf install java-21-openjdk" && exit 1)
+    @test -f ~/.local/lib/tlaplus/tla2tools.jar || (echo "Error: TLA+ tools not found. See formal/README.md for installation." && exit 1)
+
+# =============================================================================
 # Documentation
 # =============================================================================
 

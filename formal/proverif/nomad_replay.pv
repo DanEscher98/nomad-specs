@@ -47,8 +47,7 @@ fun nonce_to_bits(nonce): bitstring [data, typeConverter].
 fun inc_nonce(nonce): nonce.
 
 (* Comparison - for replay window *)
-fun nonce_lt(nonce, nonce): bool.
-fun nonce_eq(nonce, nonce): bool.
+(* Note: We define these as reducs since they're relational predicates *)
 reduc forall n: nonce; nonce_eq(n, n) = true.
 reduc forall n: nonce; nonce_lt(n, inc_nonce(n)) = true.
 

@@ -55,6 +55,9 @@ fun hash(bitstring): bitstring.
 fun hkdf(bitstring, bitstring): bitstring.
 fun concat(bitstring, bitstring): bitstring.
 fun pub_to_bits(pubkey): bitstring [data, typeConverter].
+fun bits_to_pub(bitstring): pubkey [data, typeConverter].
+(* Ensure round-trip: bits_to_pub(pub_to_bits(pk)) = pk *)
+equation forall k: privkey; bits_to_pub(pub_to_bits(pk(k))) = pk(k).
 
 (* Key derivation for new epoch *)
 fun derive_epoch_keys(bitstring, bitstring): bitstring.
@@ -82,68 +85,50 @@ event SecretReceived(bitstring, bitstring). (* epoch_id, secret *)
 (* Queries - Forward Secrecy Properties                         *)
 (* ============================================================ *)
 
-(* Q1: Secret in epoch 0 remains secret even if epoch 1 key is compromised *)
+(* Q1: Forward Secrecy - Epoch 0 secrets remain secret even if epoch 1 key is compromised *)
+(* This SHOULD pass: compromising future keys shouldn't reveal past secrets *)
 query attacker(secret_epoch0).
 
-(* Q2: Secret in epoch 1 remains secret even if epoch 0 key is compromised *)
+(* Q2: Epoch 1 secrets after compromise *)
+(* EXPECTED TO FAIL: We explicitly leak key1, so epoch 1 secrets are compromised *)
+(* This is intentional - we're modeling key compromise *)
 query attacker(secret_epoch1).
 
-(* Q3: Secret in epoch 2 remains secret (baseline - no compromise) *)
+(* Q3: Post-Compromise Security (PCS) - Epoch 2 secrets after epoch 1 compromise *)
+(* FINDING: This FAILS against ACTIVE attackers due to MitM during rekey.
+ *
+ * Attack: If attacker has key1 AND is active on the network:
+ *   1. Attacker intercepts rekey2_msg, decrypts e2_pub with key1
+ *   2. Attacker sends fake response with their own ephemeral a_2
+ *   3. Initiator computes dh(e2_priv, a_2) as key2
+ *   4. Attacker can compute dh(a_2, e2_pub) = same key2
+ *   5. Attacker can decrypt epoch 2 traffic
+ *
+ * LIMITATION: NOMAD's rekeying provides PCS only against PASSIVE attackers.
+ * To defend against active attackers, rekey messages would need to be
+ * authenticated with static keys (which the attacker doesn't have).
+ *)
 query attacker(secret_epoch2).
 
-(* Q4: Post-compromise security - after compromise, new epoch is secure *)
-(* This is tested by checking secret_epoch2 after epoch1 compromise *)
-
-(* Q5: Key independence - keys in different epochs are unrelated *)
-(* Modeled by checking that compromising one epoch doesn't leak others *)
+(* NOTE: Queries 2 and 3 are expected to show attacks. This is not a bug in
+ * the protocol per se, but a documented limitation:
+ * - Q2 fails because we model key compromise (intentional)
+ * - Q3 fails because PCS requires passive attacker assumption
+ *
+ * The spec should clarify: "Forward secrecy protects past sessions from
+ * future key compromise. Post-compromise security (PCS) protects future
+ * sessions from past key compromise, BUT only against passive attackers
+ * who cannot inject traffic during rekeying."
+ *)
 
 (* ============================================================ *)
 (* Rekey Protocol                                               *)
 (* ============================================================ *)
 
-(* Rekey initiator - runs at end of each epoch *)
-let RekeyInitiator(current_key: bitstring, epoch: bitstring) =
-  (* Generate new ephemeral for rekey *)
-  new new_e_priv: privkey;
-  let new_e_pub = pk(new_e_priv) in
-
-  (* Send rekey request encrypted with current key *)
-  let rekey_msg = aead_enc(pub_to_bits(new_e_pub), current_key, epoch) in
-  out(c, rekey_msg);
-
-  (* Receive responder's new ephemeral *)
-  in(c, enc_resp: bitstring);
-  let resp_e_bits = aead_dec(enc_resp, current_key, epoch) in
-
-  (* Compute new shared secret - simplified model *)
-  (* In reality: dh(new_e_priv, resp_e_pub) *)
-  let new_shared = hash(concat(resp_e_bits, pub_to_bits(new_e_pub))) in
-
-  (* Derive new epoch keys *)
-  let new_keys = derive_epoch_keys(new_shared, epoch) in
-
-  new_keys.
-
-let RekeyResponder(current_key: bitstring, epoch: bitstring) =
-  (* Receive rekey request *)
-  in(c, enc_req: bitstring);
-  let init_e_bits = aead_dec(enc_req, current_key, epoch) in
-
-  (* Generate new ephemeral *)
-  new resp_e_priv: privkey;
-  let resp_e_pub = pk(resp_e_priv) in
-
-  (* Send response encrypted with current key *)
-  let rekey_resp = aead_enc(pub_to_bits(resp_e_pub), current_key, epoch) in
-  out(c, rekey_resp);
-
-  (* Compute new shared secret *)
-  let new_shared = hash(concat(init_e_bits, pub_to_bits(resp_e_pub))) in
-
-  (* Derive new epoch keys *)
-  let new_keys = derive_epoch_keys(new_shared, epoch) in
-
-  new_keys.
+(* NOTE: RekeyInitiator and RekeyResponder helper processes removed.
+ * The actual rekey logic is inlined in SessionInitiator/SessionResponder
+ * to properly model the multi-epoch session flow.
+ *)
 
 (* ============================================================ *)
 (* Session with Multiple Epochs                                 *)
@@ -167,7 +152,9 @@ let SessionInitiator(initial_key: bitstring) =
 
   in(c, rekey1_resp: bitstring);
   let resp1_bits = aead_dec(rekey1_resp, key0, EPOCH0) in
-  let key1 = derive_epoch_keys(hash(concat(resp1_bits, pub_to_bits(e1_pub))), EPOCH1) in
+  (* Use actual DH for proper forward secrecy *)
+  let dh1_secret = dh(e1_priv, bits_to_pub(resp1_bits)) in
+  let key1 = derive_epoch_keys(dh1_secret, EPOCH1) in
 
   event EpochEnded(EPOCH0);
 
@@ -192,7 +179,9 @@ let SessionInitiator(initial_key: bitstring) =
 
   in(c, rekey2_resp: bitstring);
   let resp2_bits = aead_dec(rekey2_resp, key1, EPOCH1) in
-  let key2 = derive_epoch_keys(hash(concat(resp2_bits, pub_to_bits(e2_pub))), EPOCH2) in
+  (* Use actual DH for proper forward secrecy and PCS *)
+  let dh2_secret = dh(e2_priv, bits_to_pub(resp2_bits)) in
+  let key2 = derive_epoch_keys(dh2_secret, EPOCH2) in
 
   event EpochEnded(EPOCH1);
 
@@ -224,7 +213,9 @@ let SessionResponder(initial_key: bitstring) =
   let rekey1_resp = aead_enc(pub_to_bits(r1_pub), key0, EPOCH0) in
   out(c, rekey1_resp);
 
-  let key1 = derive_epoch_keys(hash(concat(init1_bits, pub_to_bits(r1_pub))), EPOCH1) in
+  (* Use actual DH for proper forward secrecy *)
+  let dh1_secret = dh(r1_priv, bits_to_pub(init1_bits)) in
+  let key1 = derive_epoch_keys(dh1_secret, EPOCH1) in
 
   (* === EPOCH 1 === *)
 
@@ -245,7 +236,9 @@ let SessionResponder(initial_key: bitstring) =
   let rekey2_resp = aead_enc(pub_to_bits(r2_pub), key1, EPOCH1) in
   out(c, rekey2_resp);
 
-  let key2 = derive_epoch_keys(hash(concat(init2_bits, pub_to_bits(r2_pub))), EPOCH2) in
+  (* Use actual DH for proper forward secrecy and PCS *)
+  let dh2_secret = dh(r2_priv, bits_to_pub(init2_bits)) in
+  let key2 = derive_epoch_keys(dh2_secret, EPOCH2) in
 
   (* === EPOCH 2 === *)
 
