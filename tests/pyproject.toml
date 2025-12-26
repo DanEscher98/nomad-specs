@@ -81,5 +81,7 @@ warn_unused_configs = true
 
 [dependency-groups]
 dev = [
+    "mypy>=1.19.1",
     "ruff>=0.14.10",
+    "types-docker>=7.1.0.20251202",
 ]

@@ -13,8 +13,10 @@ from __future__ import annotations
 import struct
 from dataclasses import dataclass
 
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
-from nacl.bindings import crypto_scalarmult_base
+from cryptography.hazmat.primitives.kdf.hkdf import HKDFExpand
+from nacl.bindings import crypto_scalarmult, crypto_scalarmult_base
 from nacl.hash import blake2b
 
 # =============================================================================
@@ -47,6 +49,15 @@ DATA_FRAME_HEADER_SIZE = 16
 
 # Sync message header size (before diff payload)
 SYNC_MESSAGE_HEADER_SIZE = 28  # 3 * uint64 + uint32
+
+# Key derivation constants (from SECURITY.md)
+SESSION_KEY_INFO = b"nomad v1 session keys"
+REKEY_AUTH_INFO = b"nomad v1 rekey auth"
+REKEY_INFO_PREFIX = b"nomad v1 rekey"
+
+# Key sizes
+SYMMETRIC_KEY_SIZE = 32
+REKEY_AUTH_KEY_SIZE = 32
 
 # =============================================================================
 # Extension Constants (from EXTENSIONS.md)
@@ -733,6 +744,152 @@ def deterministic_bytes(seed: str, length: int) -> bytes:
 
 
 # =============================================================================
+# HKDF Key Derivation (from SECURITY.md)
+# =============================================================================
+
+
+def hkdf_expand(prk: bytes, info: bytes, length: int) -> bytes:
+    """HKDF-Expand using SHA-256.
+
+    Per RFC 5869, this expands a pseudorandom key (PRK) into output keying material.
+
+    Args:
+        prk: Pseudorandom key (e.g., DH shared secret)
+        info: Context and application specific information
+        length: Length of output keying material in bytes
+
+    Returns:
+        Derived key material of specified length
+    """
+    hkdf = HKDFExpand(
+        algorithm=hashes.SHA256(),
+        length=length,
+        info=info,
+    )
+    return hkdf.derive(prk)
+
+
+def derive_session_keys(handshake_hash: bytes) -> tuple[bytes, bytes]:
+    """Derive session keys for epoch 0 from handshake hash.
+
+    Per SECURITY.md §Session Key Derivation:
+        (initiator_key, responder_key) = HKDF-Expand(
+            handshake_hash,
+            "nomad v1 session keys",
+            64
+        )
+
+    Args:
+        handshake_hash: The handshake hash from Noise_IK handshake
+
+    Returns:
+        Tuple of (initiator_key, responder_key), each 32 bytes
+    """
+    key_material = hkdf_expand(handshake_hash, SESSION_KEY_INFO, 64)
+    initiator_key = key_material[:32]
+    responder_key = key_material[32:]
+    return initiator_key, responder_key
+
+
+def derive_rekey_auth_key(static_dh_secret: bytes) -> bytes:
+    """Derive rekey authentication key from static DH secret.
+
+    Per SECURITY.md §Session Key Derivation:
+        rekey_auth_key = HKDF-Expand(
+            static_dh_secret,       // DH(s_initiator, S_responder)
+            "nomad v1 rekey auth",
+            32
+        )
+
+    This key is used during rekeying to provide post-compromise security
+    against active attackers. It is derived from the static DH, which an
+    attacker who only has session keys cannot reproduce.
+
+    Args:
+        static_dh_secret: The static DH shared secret DH(s_initiator, S_responder)
+
+    Returns:
+        32-byte rekey authentication key
+    """
+    return hkdf_expand(static_dh_secret, REKEY_AUTH_INFO, REKEY_AUTH_KEY_SIZE)
+
+
+def compute_static_dh(
+    initiator_static_private: bytes,
+    responder_static_public: bytes,
+) -> bytes:
+    """Compute static DH secret for rekey_auth_key derivation.
+
+    Args:
+        initiator_static_private: Initiator's static private key (32 bytes)
+        responder_static_public: Responder's static public key (32 bytes)
+
+    Returns:
+        32-byte DH shared secret
+    """
+    return crypto_scalarmult(initiator_static_private, responder_static_public)
+
+
+def derive_rekey_keys(
+    ephemeral_dh: bytes,
+    rekey_auth_key: bytes,
+    epoch: int,
+) -> tuple[bytes, bytes]:
+    """Derive new session keys during rekey.
+
+    Per SECURITY.md §Post-Rekey Keys:
+        (new_initiator_key, new_responder_key) = HKDF-Expand(
+            ephemeral_dh || rekey_auth_key,
+            "nomad v1 rekey" || LE32(epoch),
+            64
+        )
+
+    The rekey_auth_key is mixed in to provide post-compromise security.
+    An attacker who only has the previous session keys cannot compute
+    the new keys because they don't have access to rekey_auth_key.
+
+    Args:
+        ephemeral_dh: DH(initiator_ephemeral, responder_ephemeral)
+        rekey_auth_key: The rekey auth key derived during handshake
+        epoch: The new epoch number (must be > 0)
+
+    Returns:
+        Tuple of (new_initiator_key, new_responder_key), each 32 bytes
+    """
+    if epoch < 1:
+        raise ValueError(f"Rekey epoch must be >= 1, got {epoch}")
+
+    # Concatenate PRK material: ephemeral_dh || rekey_auth_key
+    prk = ephemeral_dh + rekey_auth_key
+
+    # Build info: "nomad v1 rekey" || LE32(epoch)
+    info = REKEY_INFO_PREFIX + struct.pack("<I", epoch)
+
+    # Derive 64 bytes of key material
+    key_material = hkdf_expand(prk, info, 64)
+    new_initiator_key = key_material[:32]
+    new_responder_key = key_material[32:]
+
+    return new_initiator_key, new_responder_key
+
+
+def compute_ephemeral_dh(
+    local_ephemeral_private: bytes,
+    remote_ephemeral_public: bytes,
+) -> bytes:
+    """Compute ephemeral DH secret for rekey.
+
+    Args:
+        local_ephemeral_private: Local party's ephemeral private key (32 bytes)
+        remote_ephemeral_public: Remote party's ephemeral public key (32 bytes)
+
+    Returns:
+        32-byte DH shared secret
+    """
+    return crypto_scalarmult(local_ephemeral_private, remote_ephemeral_public)
+
+
+# =============================================================================
 # NomadCodec Class (Main Interface)
 # =============================================================================
 
@@ -773,6 +930,13 @@ class NomadCodec:
     COMPRESSION_LEVEL_DEFAULT = COMPRESSION_LEVEL_DEFAULT
     COMPRESSION_LEVEL_MIN = COMPRESSION_LEVEL_MIN
     COMPRESSION_LEVEL_MAX = COMPRESSION_LEVEL_MAX
+
+    # Key derivation constants (PCS fix)
+    SESSION_KEY_INFO = SESSION_KEY_INFO
+    REKEY_AUTH_INFO = REKEY_AUTH_INFO
+    REKEY_INFO_PREFIX = REKEY_INFO_PREFIX
+    SYMMETRIC_KEY_SIZE = SYMMETRIC_KEY_SIZE
+    REKEY_AUTH_KEY_SIZE = REKEY_AUTH_KEY_SIZE
 
     # AEAD methods
     @staticmethod
@@ -933,6 +1097,47 @@ class NomadCodec:
     def deterministic_bytes(seed: str, length: int) -> bytes:
         """Generate deterministic bytes for testing."""
         return deterministic_bytes(seed, length)
+
+    # Key derivation methods (PCS fix)
+    @staticmethod
+    def hkdf_expand(prk: bytes, info: bytes, length: int) -> bytes:
+        """HKDF-Expand using SHA-256."""
+        return hkdf_expand(prk, info, length)
+
+    @staticmethod
+    def derive_session_keys(handshake_hash: bytes) -> tuple[bytes, bytes]:
+        """Derive session keys for epoch 0 from handshake hash."""
+        return derive_session_keys(handshake_hash)
+
+    @staticmethod
+    def derive_rekey_auth_key(static_dh_secret: bytes) -> bytes:
+        """Derive rekey authentication key from static DH secret."""
+        return derive_rekey_auth_key(static_dh_secret)
+
+    @staticmethod
+    def compute_static_dh(
+        initiator_static_private: bytes,
+        responder_static_public: bytes,
+    ) -> bytes:
+        """Compute static DH secret for rekey_auth_key derivation."""
+        return compute_static_dh(initiator_static_private, responder_static_public)
+
+    @staticmethod
+    def derive_rekey_keys(
+        ephemeral_dh: bytes,
+        rekey_auth_key: bytes,
+        epoch: int,
+    ) -> tuple[bytes, bytes]:
+        """Derive new session keys during rekey (with PCS)."""
+        return derive_rekey_keys(ephemeral_dh, rekey_auth_key, epoch)
+
+    @staticmethod
+    def compute_ephemeral_dh(
+        local_ephemeral_private: bytes,
+        remote_ephemeral_public: bytes,
+    ) -> bytes:
+        """Compute ephemeral DH secret for rekey."""
+        return compute_ephemeral_dh(local_ephemeral_private, remote_ephemeral_public)
 
     # Extension methods
     @staticmethod
