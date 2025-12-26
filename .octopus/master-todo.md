@@ -23,7 +23,6 @@ Tests are named by **infrastructure required** (prefix), not by what they test (
 
 | ID | Branch | Worktree | Description |
 |----|--------|----------|-------------|
-| t6-vectors | tentacle/t6-vectors | .worktrees/t6-vectors | **Phase 2: PCS fix test vectors** |
 | t10-launch | tentacle/t10-launch | .worktrees/t10-launch | Launch coordination & outreach |
 
 ## Pending Tentacles
@@ -34,8 +33,8 @@ None.
 
 | Task | Owner | Priority | Status |
 |------|-------|----------|--------|
-| Update test vectors with `rekey_auth_key` KDF | **t6-vectors** | HIGH | 🔲 Assigned |
-| Update Rust implementation with new KDF | External (nomad-rs) | HIGH | 🔲 |
+| Update test vectors with `rekey_auth_key` KDF | t6-vectors | HIGH | ✅ Done |
+| Update Rust implementation with new KDF | External (nomad-rs) | HIGH | 🔲 Pending |
 | Add formal verification section to paper | t9-paper | HIGH | ✅ Done |
 | Document PCS finding as key contribution | t9-paper | HIGH | ✅ Done |
 
@@ -44,7 +43,7 @@ None.
 | ID | Merged | Spec | Server | E2E | Notes |
 |----|--------|------|--------|-----|-------|
 | t5-docker | b9c97e7 | ✅ | N/A | N/A | Docker infrastructure |
-| t6-vectors | 9eba181 | ✅ | N/A | N/A | Reference codec (NomadCodec), sync_vectors.json5 |
+| t6-vectors | 88e2795 | ✅ | N/A | N/A | Reference codec, **PCS fix vectors**, rekey_vectors.json5 |
 | t1-security | 3f13c52 | ✅ | ✅ | 🔲 | Security layer, handshake/rekey/replay |
 | t3-sync | 07c6893 | ✅ | 🔲 | 🔲 | Sync layer, diff encode/decode/apply, convergence |
 | t2-transport | b3c79c6 | ✅ | ✅ | 🔲 | Transport layer, wire/keepalive/roaming |
