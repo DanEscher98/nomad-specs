@@ -11,29 +11,25 @@ dependencies = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
     "pytest-timeout>=2.2",
-    "pytest-xdist>=3.5",  # parallel test execution
-
+    "pytest-xdist>=3.5", # parallel test execution
     # Property-based testing
     "hypothesis>=6.92",
-
     # Container orchestration
     "docker>=7.0",
     "python-dotenv>=1.0",
-
     # Packet inspection (scapy)
     "scapy>=2.5",
-
-    # Reference implementation dependencies
-    # (to be added by t6-vectors tentacle)
-    # "noiseprotocol>=0.3",
-    # "cryptography>=42.0",
-
+    # Reference implementation dependencies (crypto)
+    "cryptography>=42.0",
+    "pynacl>=1.5",
+    "noiseprotocol>=0.3",  # Noise_IK handshake
     # JSON5 for test vectors with comments
     "json5>=0.9",
-
     # Utilities
     "attrs>=23.0",
     "structlog>=24.0",
+    # Compression (for extension tests)
+    "zstandard>=0.22",
 ]
 
 [project.optional-dependencies]
@@ -52,12 +48,13 @@ packages = ["lib"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["unit", "protocol", "wire", "interop", "adversarial"]
+testpaths = ["unit", "protocol", "wire", "interop", "adversarial", "resilience"]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "container: tests requiring docker containers",
     "network: tests requiring network access",
     "adversarial: security/fuzzing tests",
+    "resilience: network stress and chaos tests",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning:scapy.*",
@@ -73,6 +70,7 @@ select = ["E", "F", "I", "UP", "B", "SIM", "TCH"]
 ignore = [
     "E501",  # line too long (handled by formatter)
     "TC003", # stdlib imports in type checking block (overly pedantic for Iterator)
+    "SIM117",  # nested with statements - more readable for chaos testing
 ]
 
 [tool.mypy]
@@ -80,3 +78,10 @@ python_version = "3.11"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
+
+[dependency-groups]
+dev = [
+    "mypy>=1.19.1",
+    "ruff>=0.14.10",
+    "types-docker>=7.1.0.20251202",
+]

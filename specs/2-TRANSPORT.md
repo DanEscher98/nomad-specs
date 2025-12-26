@@ -374,6 +374,29 @@ Implementations SHOULD:
 
 ---
 
+## Formal Verification
+
+The transport layer has been formally verified using TLA+.
+
+### TLA+ Specifications
+
+| Spec | Properties Verified |
+|------|---------------------|
+| `formal/tlaplus/Roaming.tla` | Session survival, anti-amplification, spoof prevention |
+
+### Verified Properties
+
+| Property | Result | Description |
+|----------|--------|-------------|
+| SessionSurvivesRoaming | ✅ Proven | Session remains active during IP changes |
+| AntiAmplification | ✅ Proven | 3x limit enforced on unvalidated addresses |
+| AttackerCannotRedirect | ✅ Proven | Spoofed frames cannot hijack sessions |
+| CommunicationResumes | ✅ Proven | Connection recovers after IP change |
+
+See `formal/README.md` for instructions on running the verification tools.
+
+---
+
 ## Test Mapping
 
 | Spec Section | Test File |

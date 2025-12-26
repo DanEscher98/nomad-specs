@@ -1,0 +1,55 @@
+\begin{thebibliography}{1}
+
+\bibitem{blanchet2016proverif}
+Bruno Blanchet.
+\newblock Modeling and verifying security protocols with the applied pi
+  calculus and proverif.
+\newblock In {\em Foundations and Trends in Privacy and Security}, volume~1,
+  pages 1--135, 2016.
+
+\bibitem{donenfeld2017wireguard}
+Jason~A. Donenfeld.
+\newblock Wireguard: Next generation kernel network tunnel.
+\newblock In {\em Proceedings of the 2017 Network and Distributed System
+  Security Symposium (NDSS '17)}, San Diego, CA, 2017. Internet Society.
+
+\bibitem{rfc9000}
+J.~Iyengar and M.~Thomson.
+\newblock Quic: A udp-based multiplexed and secure transport.
+\newblock RFC 9000, IETF, 2021.
+
+\bibitem{lamport2002tla}
+Leslie Lamport.
+\newblock {\em Specifying Systems: The TLA+ Language and Tools for Hardware and
+  Software Engineers}.
+\newblock Addison-Wesley, 2002.
+
+\bibitem{hypothesis}
+David~R. MacIver.
+\newblock Hypothesis: Property-based testing for python.
+\newblock \url{https://hypothesis.readthedocs.io/}, 2023.
+\newblock Accessed: 2024-01-15.
+
+\bibitem{rfc8439}
+Y.~Nir and A.~Langley.
+\newblock Chacha20 and poly1305 for ietf protocols.
+\newblock RFC 8439, IETF, 2018.
+
+\bibitem{perrin2018noise}
+Trevor Perrin.
+\newblock The noise protocol framework.
+\newblock Specification, noiseprotocol.org, 2018.
+\newblock Revision 34.
+
+\bibitem{winstein2012mosh}
+Keith Winstein and Hari Balakrishnan.
+\newblock Mosh: An interactive remote shell for mobile clients.
+\newblock In {\em Proceedings of the 2012 USENIX Annual Technical Conference
+  (USENIX ATC '12)}, pages 177--182, Boston, MA, 2012. USENIX Association.
+
+\bibitem{rfc4253}
+T.~Ylonen and C.~Lonvick.
+\newblock The secure shell (ssh) transport layer protocol.
+\newblock RFC 4253, IETF, 2006.
+
+\end{thebibliography}

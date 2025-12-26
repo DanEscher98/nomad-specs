@@ -31,6 +31,14 @@ docker-up-capture:
 docker-up-chaos:
     docker compose -f docker/docker-compose.yml --profile chaos up -d
 
+# Start with test-runner (for scapy-based tests)
+docker-up-runner:
+    docker compose -f docker/docker-compose.yml --profile test-runner up -d
+
+# Run tests inside test-runner container (for network-level tests)
+docker-test-runner *args:
+    docker compose -f docker/docker-compose.yml exec test-runner uv run pytest {{ args }}
+
 # Stop and remove test containers
 docker-down:
     docker compose -f docker/docker-compose.yml down -v
@@ -63,21 +71,64 @@ install:
 test: install
     cd tests && uv run pytest -v
 
-# Run unit tests (no containers needed)
+# -----------------------------------------------------------------------------
+# Test Categories (by infrastructure required)
+# -----------------------------------------------------------------------------
+
+# Run spec tests (Python reference codec only - NO Docker)
+# Tests: unit/test_spec_*, protocol/test_spec_*, wire/test_spec_*, adversarial/test_spec_*
+test-spec: install
+    cd tests && uv run pytest -k "test_spec" -v
+
+# Run server tests (Python client → Docker server)
+# Tests: protocol/test_server_*, wire/test_server_*, adversarial/test_server_*
+# Requires: docker-up
+test-server: install
+    set -a && source docker/.env && set +a && cd tests && uv run pytest -k "test_server" -v
+
+# Run E2E tests (Docker client ↔ Docker server + packet capture)
+# Tests: protocol/test_e2e_*, wire/test_e2e_*, resilience/test_e2e_*
+# Requires: docker-up-capture
+test-e2e: install
+    cd tests && uv run pytest -k "test_e2e" -v
+
+# Run a specific test file
+test-file file: install
+    cd tests && uv run pytest {{ file }} -v
+
+# Run a specific test file with .env loaded (for server/e2e tests)
+test-file-env file: install
+    set -a && source docker/.env && set +a && cd tests && uv run pytest {{ file }} -v
+
+# Quick server test: start containers, test, stop
+quick-server: docker-up test-server docker-down
+
+# Quick E2E: start containers with capture, test, stop
+quick-e2e: docker-up-capture test-e2e docker-down
+
+# -----------------------------------------------------------------------------
+# Legacy/Directory-based Commands
+# -----------------------------------------------------------------------------
+
+# Run unit directory (now all test_spec_*)
 test-unit: install
     cd tests && uv run pytest unit/ -v
 
-# Run protocol tests (requires containers)
-test-protocol: install docker-up
+# Run protocol directory (mix of spec/server/e2e)
+test-protocol: install
     cd tests && uv run pytest protocol/ -v
 
-# Run wire-level tests (requires containers + capture)
-test-wire: install docker-up-capture
+# Run wire directory (mix of spec/server/e2e)
+test-wire: install
     cd tests && uv run pytest wire/ -v
 
-# Run adversarial tests
-test-adversarial: install docker-up
+# Run adversarial directory (mix of spec/server)
+test-adversarial: install
     cd tests && uv run pytest adversarial/ -v
+
+# Run resilience directory (all E2E - requires chaos)
+test-resilience: install docker-up-chaos
+    cd tests && uv run pytest resilience/ -v --timeout=120
 
 # Run interop tests (multiple implementations)
 test-interop: install
@@ -91,10 +142,6 @@ test-cov: install
 # Run tests in parallel
 test-parallel: install
     cd tests && uv run pytest -n auto -v
-
-# Run a specific test file
-test-file file: install
-    cd tests && uv run pytest {{ file }} -v
 
 # =============================================================================
 # Development
@@ -145,6 +192,60 @@ ci: install
 # Build and test with a specific implementation
 ci-impl impl_path:
     SERVER_CONTEXT={{ impl_path }} CLIENT_CONTEXT={{ impl_path }} just test
+
+# =============================================================================
+# Formal Verification
+# =============================================================================
+
+# Run all formal verification (ProVerif + TLA+)
+formal-all: formal-proverif formal-tlaplus
+
+# Run all ProVerif models
+formal-proverif:
+    @echo "Running ProVerif verification..."
+    proverif formal/proverif/nomad_handshake.pv
+    proverif formal/proverif/nomad_replay.pv
+    proverif formal/proverif/nomad_rekey.pv
+    @echo "ProVerif verification complete"
+
+# Run specific ProVerif model
+formal-proverif-handshake:
+    proverif formal/proverif/nomad_handshake.pv
+
+formal-proverif-replay:
+    proverif formal/proverif/nomad_replay.pv
+
+formal-proverif-rekey:
+    proverif formal/proverif/nomad_rekey.pv
+
+# Run all TLA+ models
+formal-tlaplus: _check-java
+    @echo "Running TLA+ verification..."
+    java -XX:+UseParallelGC -cp ~/.local/lib/tlaplus/tla2tools.jar tlc2.TLC \
+        -config formal/tlaplus/RekeyStateMachine.cfg formal/tlaplus/RekeyStateMachine.tla
+    java -XX:+UseParallelGC -cp ~/.local/lib/tlaplus/tla2tools.jar tlc2.TLC \
+        -config formal/tlaplus/SyncLayer.cfg formal/tlaplus/SyncLayer.tla
+    java -XX:+UseParallelGC -cp ~/.local/lib/tlaplus/tla2tools.jar tlc2.TLC \
+        -config formal/tlaplus/Roaming.cfg formal/tlaplus/Roaming.tla
+    @echo "TLA+ verification complete"
+
+# Run specific TLA+ model
+formal-tlaplus-rekey: _check-java
+    java -XX:+UseParallelGC -cp ~/.local/lib/tlaplus/tla2tools.jar tlc2.TLC \
+        -config formal/tlaplus/RekeyStateMachine.cfg formal/tlaplus/RekeyStateMachine.tla
+
+formal-tlaplus-sync: _check-java
+    java -XX:+UseParallelGC -cp ~/.local/lib/tlaplus/tla2tools.jar tlc2.TLC \
+        -config formal/tlaplus/SyncLayer.cfg formal/tlaplus/SyncLayer.tla
+
+formal-tlaplus-roaming: _check-java
+    java -XX:+UseParallelGC -cp ~/.local/lib/tlaplus/tla2tools.jar tlc2.TLC \
+        -config formal/tlaplus/Roaming.cfg formal/tlaplus/Roaming.tla
+
+# Check TLA+ tools are installed
+_check-java:
+    @which java > /dev/null || (echo "Error: Java not found. Install with: sudo dnf install java-21-openjdk" && exit 1)
+    @test -f ~/.local/lib/tlaplus/tla2tools.jar || (echo "Error: TLA+ tools not found. See formal/README.md for installation." && exit 1)
 
 # =============================================================================
 # Documentation

@@ -1,0 +1,21 @@
+%%{init: {'theme': 'neutral'}}%%
+sequenceDiagram
+    participant I as Initiator
+    participant R as Responder
+
+    Note over I,R: 1. BOOTSTRAP (out-of-band)
+    I->>I: Obtain Responder's static public key
+
+    Note over I,R: 2. HANDSHAKE (1-RTT)
+    I->>R: HandshakeInit (e, es, s, ss)
+    R->>I: HandshakeResp (e, ee, se)
+    Note over I,R: Session keys derived
+
+    Note over I,R: 3. DATA TRANSPORT
+    I->>R: Data frames (encrypted)
+    R->>I: Data frames (encrypted)
+
+    Note over I,R: 4. REKEYING (every 2 min)
+    I->>R: Rekey request
+    R->>I: Rekey response
+    Note over I,R: New epoch, keys rotated
