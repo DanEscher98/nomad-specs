@@ -105,13 +105,22 @@ packet
 
 ## Session Key Derivation
 
-After successful handshake, both parties derive session keys:
+After successful handshake, both parties derive session keys and rekey authentication key:
 
 ```
+// Session keys for epoch 0
 (initiator_key, responder_key) = HKDF-Expand(
     handshake_hash,
     "nomad v1 session keys",
     64
+)
+
+// Rekey authentication key (for post-compromise security)
+// Derived from static DH, which attacker cannot reproduce
+rekey_auth_key = HKDF-Expand(
+    static_dh_secret,       // DH(s_initiator, S_responder)
+    "nomad v1 rekey auth",
+    32
 )
 ```
 
@@ -119,6 +128,8 @@ After successful handshake, both parties derive session keys:
 |-------|----------|-------------|
 | Initiator | `initiator_key` | `responder_key` |
 | Responder | `responder_key` | `initiator_key` |
+
+The `rekey_auth_key` MUST be retained for the session lifetime. It is used during rekeying to provide post-compromise security against active attackers (see §Post-Rekey Keys).
 
 ---
 
@@ -335,13 +346,21 @@ def decrypt_frame(frame):
 
 ### Post-Rekey Keys
 
+New session keys are derived from the ephemeral DH AND the `rekey_auth_key`:
+
 ```
+// Ephemeral DH between new ephemeral keys
+ephemeral_dh = DH(initiator_ephemeral, responder_ephemeral)
+
+// Mix with rekey_auth_key for post-compromise security
 (new_initiator_key, new_responder_key) = HKDF-Expand(
-    new_handshake_hash,
+    ephemeral_dh || rekey_auth_key,
     "nomad v1 rekey" || LE32(epoch),
     64
 )
 ```
+
+> **Post-Compromise Security**: The `rekey_auth_key` ensures that an attacker who has compromised a session key cannot maintain access after rekey. Since `rekey_auth_key` is derived from static DH during handshake, the attacker cannot compute valid new keys even if they inject their own ephemeral during rekey. See `formal/proverif/nomad_rekey_fixed.pv` for formal verification.
 
 ---
 
@@ -407,6 +426,7 @@ If epoch reaches `2^32 - 1`, terminate the session and establish a new one via f
 | Integrity | ✅ | Poly1305 authentication tag |
 | Authenticity | ✅ | Noise_IK mutual authentication |
 | Forward secrecy | ✅ | Ephemeral keys + 2-minute rekeying |
+| Post-compromise security | ✅ | `rekey_auth_key` mixed into rekey KDF |
 | Replay protection | ✅ | Nonce counter + sliding window |
 | Identity hiding (initiator) | ✅ | Static key encrypted under responder's key |
 | Identity hiding (responder) | ❌ | Responder's public key must be known |
@@ -470,6 +490,7 @@ All security properties listed in §Security Properties have been formally verif
 | Confidentiality | ProVerif | ✅ Proven |
 | Authenticity | ProVerif | ✅ Proven |
 | Forward secrecy | ProVerif + TLA+ | ✅ Proven |
+| Post-compromise security | ProVerif | ✅ Proven (`nomad_rekey_fixed.pv`) |
 | Replay protection | ProVerif | ✅ Proven |
 | Identity hiding (initiator) | ProVerif | ✅ Proven |
 

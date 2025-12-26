@@ -78,4 +78,49 @@ Sync properties to verify (from 3-SYNC.md):
 - Reference to formal/ directory for full models
 
 ---
+
+## Escalation to Brain
+
+### [CRITICAL] PCS Fix Requires Test Vector & Implementation Updates
+
+**Date:** 2025-12-26
+**From:** t11-formal
+**Priority:** HIGH
+
+#### Summary
+
+Formal verification found a PCS (Post-Compromise Security) vulnerability in the original rekeying design. A fix has been developed, formally verified, and the spec updated.
+
+#### What Changed
+
+**1. Spec Update (specs/1-SECURITY.md):**
+- Added `rekey_auth_key` derivation in §Session Key Derivation
+- Updated §Post-Rekey Keys to mix `rekey_auth_key` into KDF
+- Added PCS to §Security Properties
+
+**2. New Key Derivation:**
+```
+// During handshake:
+rekey_auth_key = HKDF(static_dh_secret, "nomad v1 rekey auth", 32)
+
+// During rekey:
+new_keys = HKDF(ephemeral_dh || rekey_auth_key, "nomad v1 rekey" || epoch, 64)
+```
+
+#### Action Required
+
+| Task | Tentacle | Priority |
+|------|----------|----------|
+| Update `tests/vectors/handshake_vectors.json5` with rekey_auth_key | t6-vectors | HIGH |
+| Update rekey test vectors with new KDF | t6-vectors | HIGH |
+| Update Rust implementation | (external) | HIGH |
+| Update Go implementation | (external) | HIGH |
+
+#### Verification
+
+The fix is formally verified:
+- `formal/proverif/nomad_rekey_fixed.pv` - Q3 (PCS) passes
+- See `formal/SECURITY_FINDINGS.md` for full analysis
+
+---
 *Auto-generated from .octopus/master-todo.md*
