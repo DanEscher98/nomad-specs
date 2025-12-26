@@ -10,24 +10,28 @@
  *   4. Old keys are retained briefly for late packets
  *   5. Counter exhaustion triggers session termination
  *
- * From 1-SECURITY.md:
- *   - REKEY_AFTER_TIME: 120 seconds
- *   - REJECT_AFTER_TIME: 180 seconds (hard limit)
- *   - REKEY_AFTER_MESSAGES: 2^60 (soft limit)
+ * SPEC CONSTANTS (1-SECURITY.md §Rekeying - Round 2 update):
+ *   - REKEY_AFTER_TIME: 3600 seconds (1 hour, was 120s in Round 1)
+ *   - REJECT_AFTER_TIME: 3660 seconds (1 hour + 1 minute buffer)
+ *   - REKEY_AFTER_MESSAGES: 2^32 (was 2^60 in Round 1)
  *   - REJECT_AFTER_MESSAGES: 2^64-1 (hard limit, MUST terminate)
- *   - OLD_KEY_RETENTION: 5 seconds
+ *   - OLD_KEY_RETENTION: adaptive max(5×SRTT, 30s) (was fixed 5s)
  *   - MAX_EPOCH: 2^32-1 (epoch exhaustion terminates session)
+ *
+ * MODEL BOUNDS (for tractable verification):
+ *   The config file uses small values (5, 8, 10) for state space exploration.
+ *   These are isomorphic to the spec values for safety property verification.
  *)
 
 EXTENDS Integers, Sequences, FiniteSets
 
 CONSTANTS
-    REKEY_AFTER_TIME,       \* Initiate rekey after this time (120s)
-    REJECT_AFTER_TIME,      \* Hard limit, reject old keys (180s)
-    OLD_KEY_RETENTION,      \* Keep old keys after rekey (5s)
-    MAX_EPOCH,              \* Maximum epoch number before termination
-    REKEY_AFTER_MESSAGES,   \* Soft message limit for rekey
-    REJECT_AFTER_MESSAGES,  \* Hard message limit (terminate)
+    REKEY_AFTER_TIME,       \* Initiate rekey after this time (spec: 3600s)
+    REJECT_AFTER_TIME,      \* Hard limit, reject old keys (spec: 3660s)
+    OLD_KEY_RETENTION,      \* Keep old keys after rekey (spec: max(5×SRTT, 30s))
+    MAX_EPOCH,              \* Maximum epoch number before termination (spec: 2^32-1)
+    REKEY_AFTER_MESSAGES,   \* Soft message limit for rekey (spec: 2^32)
+    REJECT_AFTER_MESSAGES,  \* Hard message limit, terminate (spec: 2^64-1)
     MaxTime                 \* Model bound on time
 
 ASSUME REKEY_AFTER_TIME < REJECT_AFTER_TIME

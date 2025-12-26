@@ -73,12 +73,30 @@ just formal-proverif-replay    # Run replay only
 
 ### Expected Output
 
-Successful verification shows:
+Successful verification shows `RESULT ... is true` for each query:
+
 ```
-RESULT ... is true.
+$ proverif formal/proverif/nomad_replay.pv
+...
+--------------------------------------------------------------
+Verification summary:
+
+Query event(FrameAccepted(n_3,p)) ==> event(FrameSent(n_3,p)) is true.
+
+Query event(FrameAccepted(n_3,p1)) && event(FrameAccepted(n_3,p2)) ==> p1 = p2 is true.
+
+Query event(FrameSent(n_3,p_sent)) && event(FrameAccepted(n_3,p_recv)) ==> p_sent = p_recv is true.
+
+Query inj-event(FrameAccepted(n_3,p)) ==> inj-event(NonceSeen(n_3)) is true.
+
+--------------------------------------------------------------
 ```
 
-For each query in the model.
+For queries that are expected to fail (e.g., modeling key compromise):
+```
+Query not attacker(secret_epoch1[]) cannot be proved.
+```
+This means ProVerif found an attack trace, which is expected when we explicitly leak keys.
 
 ### Security Properties Verified
 
@@ -160,6 +178,32 @@ just formal-tlaplus-roaming  # Run Roaming only
 
 # Or open in TLA+ Toolbox IDE and run Model Checker
 ```
+
+### Expected Output
+
+Successful verification shows no invariant violations:
+
+```
+$ java -cp ~/.local/lib/tlaplus/tla2tools.jar tlc2.TLC \
+    -config formal/tlaplus/SyncLayer.cfg formal/tlaplus/SyncLayer.tla
+...
+TLC2 Version 2.18 of Day Month 20xx (rev: xxxxxxx)
+Running breadth-first search Model-Checking with fp 123 and target seed 456.
+...
+Model checking completed. No error has been found.
+  Estimates of the progress of the exploration:
+    State graph diameter: 12 states.
+    Distinct states found: 847 states.
+    States examined: 1423 states.
+The depth of the complete state graph search is 12.
+The average outdegree of the complete state graph is 1.
+Finished in 00s at (timestamp)
+```
+
+TLC reports:
+- **No error has been found**: All invariants hold in all reachable states
+- **Distinct states**: Number of unique states explored (varies with constants)
+- **States examined**: Total state transitions checked
 
 ### Configuration Files
 
