@@ -459,7 +459,9 @@ class TestExhaustionIntegration:
         assert MAX_EPOCH == 2**32 - 1
 
     @given(
-        initial_nonce=st.integers(min_value=MAX_NONCE_COUNTER - 100, max_value=MAX_NONCE_COUNTER - 1),
+        initial_nonce=st.integers(
+            min_value=MAX_NONCE_COUNTER - 100, max_value=MAX_NONCE_COUNTER - 1
+        ),
         frames_to_send=st.integers(min_value=1, max_value=200),
     )
     @settings(max_examples=20)

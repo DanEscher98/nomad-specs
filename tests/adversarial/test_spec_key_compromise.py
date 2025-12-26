@@ -130,9 +130,7 @@ class Attacker:
     # Keys the attacker has compromised
     compromised_keys: dict[int, bytes] = field(default_factory=dict)  # epoch -> key
 
-    def capture_frame(
-        self, ciphertext: bytes, aad: bytes, epoch: int, nonce_counter: int
-    ) -> None:
+    def capture_frame(self, ciphertext: bytes, aad: bytes, epoch: int, nonce_counter: int) -> None:
         """Capture an encrypted frame from the network."""
         self.captured_traffic.append((ciphertext, aad, epoch, nonce_counter))
 
@@ -201,9 +199,7 @@ class TestForwardSecrecy:
             plaintext = f"secret message {i}".encode()
             aad = b"\x03\x00" + b"\x00" * 14
             nonce = construct_nonce(0, 0, i)
-            ciphertext = xchacha20_poly1305_encrypt(
-                epoch0.send_key, nonce, plaintext, aad
-            )
+            ciphertext = xchacha20_poly1305_encrypt(epoch0.send_key, nonce, plaintext, aad)
             attacker.capture_frame(ciphertext, aad, epoch=0, nonce_counter=i)
             epoch0.captured_plaintexts.append(plaintext)
 
@@ -249,9 +245,7 @@ class TestForwardSecrecy:
             plaintext = f"new secret {i}".encode()
             aad = b"\x03\x00" + b"\x00" * 14
             nonce = construct_nonce(1, 0, i)
-            ciphertext = xchacha20_poly1305_encrypt(
-                epoch1.send_key, nonce, plaintext, aad
-            )
+            ciphertext = xchacha20_poly1305_encrypt(epoch1.send_key, nonce, plaintext, aad)
             attacker.capture_frame(ciphertext, aad, epoch=1, nonce_counter=i)
 
         # Attacker compromises OLD key (epoch 0)
@@ -399,9 +393,7 @@ class TestCompromiseImpact:
                 plaintext = f"epoch{epoch_num} msg{i}".encode()
                 aad = b"\x03\x00" + b"\x00" * 14
                 nonce = construct_nonce(epoch_num, 0, i)
-                ciphertext = xchacha20_poly1305_encrypt(
-                    epoch.send_key, nonce, plaintext, aad
-                )
+                ciphertext = xchacha20_poly1305_encrypt(epoch.send_key, nonce, plaintext, aad)
                 attacker.capture_frame(ciphertext, aad, epoch=epoch_num, nonce_counter=i)
 
         # Compromise only epoch 1 key
@@ -518,9 +510,7 @@ class TestForwardSecrecyProperties:
             plaintext = f"epoch{epoch_num} message".encode()
             aad = b"\x03\x00" + b"\x00" * 14
             nonce = construct_nonce(epoch_num, 0, 0)
-            ciphertext = xchacha20_poly1305_encrypt(
-                epoch.send_key, nonce, plaintext, aad
-            )
+            ciphertext = xchacha20_poly1305_encrypt(epoch.send_key, nonce, plaintext, aad)
             attacker.capture_frame(ciphertext, aad, epoch=epoch_num, nonce_counter=0)
 
         # Compromise middle epoch

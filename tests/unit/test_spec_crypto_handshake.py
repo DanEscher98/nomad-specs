@@ -83,9 +83,7 @@ class TestDeterministicKeypair:
 
     def test_vector_initiator_static(self, handshake_vectors: dict) -> None:
         """Initiator static keypair matches test vectors."""
-        keypair = next(
-            k for k in handshake_vectors["keypairs"] if k["name"] == "initiator_static"
-        )
+        keypair = next(k for k in handshake_vectors["keypairs"] if k["name"] == "initiator_static")
 
         private, public = deterministic_keypair(keypair["seed"])
 
@@ -103,9 +101,7 @@ class TestDeterministicKeypair:
 
     def test_vector_responder_static(self, handshake_vectors: dict) -> None:
         """Responder static keypair matches test vectors."""
-        keypair = next(
-            k for k in handshake_vectors["keypairs"] if k["name"] == "responder_static"
-        )
+        keypair = next(k for k in handshake_vectors["keypairs"] if k["name"] == "responder_static")
 
         private, public = deterministic_keypair(keypair["seed"])
 
@@ -266,9 +262,7 @@ class TestHandshakeInitStructure:
     def test_handshake_init_ephemeral_offset(self, handshake_vectors: dict) -> None:
         """HandshakeInit ephemeral key at correct offset."""
         structure = handshake_vectors["handshake_init_structure"]
-        ephemeral_field = next(
-            f for f in structure["fields"] if f["name"] == "initiator_ephemeral"
-        )
+        ephemeral_field = next(f for f in structure["fields"] if f["name"] == "initiator_ephemeral")
 
         assert ephemeral_field["offset"] == 4
         assert ephemeral_field["size"] == 32
@@ -320,9 +314,7 @@ class TestHandshakeRespStructure:
     def test_handshake_resp_ephemeral_offset(self, handshake_vectors: dict) -> None:
         """HandshakeResp ephemeral key at correct offset."""
         structure = handshake_vectors["handshake_resp_structure"]
-        ephemeral_field = next(
-            f for f in structure["fields"] if f["name"] == "responder_ephemeral"
-        )
+        ephemeral_field = next(f for f in structure["fields"] if f["name"] == "responder_ephemeral")
 
         assert ephemeral_field["offset"] == 8
         assert ephemeral_field["size"] == 32

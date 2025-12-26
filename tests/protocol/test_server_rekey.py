@@ -273,8 +273,9 @@ class TestE2ERekeyFrameHandling:
                 # If we get a response, check it's valid frame type
                 if len(response) > 0:
                     frame_type = response[0]
-                    assert frame_type in [FRAME_DATA, FRAME_REKEY], \
+                    assert frame_type in [FRAME_DATA, FRAME_REKEY], (
                         f"Unexpected response type: 0x{frame_type:02x}"
+                    )
             except TimeoutError:
                 # No response - server may have silently dropped (OK)
                 pass
@@ -492,7 +493,9 @@ class TestE2EForwardSecrecyProperties:
             # Encrypted portions should be different (different keys)
             encrypted1 = frame1[16:]  # After header
             encrypted2 = frame2[16:]  # After header
-            assert encrypted1 != encrypted2, "Different sessions should produce different ciphertext"
+            assert encrypted1 != encrypted2, (
+                "Different sessions should produce different ciphertext"
+            )
 
         finally:
             sock1.close()

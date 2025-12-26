@@ -418,9 +418,7 @@ class TestNomadCodec:
         codec = NomadCodec()
 
         for vector in nonce_vectors["vectors"]:
-            nonce = codec.construct_nonce(
-                vector["epoch"], vector["direction"], vector["counter"]
-            )
+            nonce = codec.construct_nonce(vector["epoch"], vector["direction"], vector["counter"])
             assert nonce == bytes.fromhex(vector["nonce"])
 
             components = codec.parse_nonce(nonce)
@@ -505,8 +503,7 @@ class TestConvergenceScenarios:
     def test_normal_convergence(self, sync_vectors: dict) -> None:
         """Test normal convergence scenario encoding."""
         scenario = next(
-            s for s in sync_vectors["convergence_scenarios"]
-            if s["name"] == "normal_convergence"
+            s for s in sync_vectors["convergence_scenarios"] if s["name"] == "normal_convergence"
         )
 
         for msg in scenario["messages"]:
@@ -522,8 +519,7 @@ class TestConvergenceScenarios:
     def test_packet_loss_recovery(self, sync_vectors: dict) -> None:
         """Test packet loss recovery scenario encoding."""
         scenario = next(
-            s for s in sync_vectors["convergence_scenarios"]
-            if s["name"] == "packet_loss_recovery"
+            s for s in sync_vectors["convergence_scenarios"] if s["name"] == "packet_loss_recovery"
         )
 
         for msg in scenario["messages"]:

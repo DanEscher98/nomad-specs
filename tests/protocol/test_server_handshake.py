@@ -111,7 +111,9 @@ class TestE2EHandshake:
         assert len(response) >= 8, f"Response too short: {len(response)} bytes"
 
         frame_type = response[0]
-        assert frame_type == FRAME_HANDSHAKE_RESP, f"Expected HandshakeResp (0x02), got 0x{frame_type:02x}"
+        assert frame_type == FRAME_HANDSHAKE_RESP, (
+            f"Expected HandshakeResp (0x02), got 0x{frame_type:02x}"
+        )
 
         # Parse session ID
         session_id = response[2:8]
@@ -296,7 +298,9 @@ class TestE2EDataExchange:
         try:
             data_response = udp_socket.recv(1024)
             # Verify it's a data frame
-            assert data_response[0] == FRAME_DATA, f"Expected DATA frame, got 0x{data_response[0]:02x}"
+            assert data_response[0] == FRAME_DATA, (
+                f"Expected DATA frame, got 0x{data_response[0]:02x}"
+            )
         except TimeoutError:
             # Server may not echo immediately, that's OK for this test
             pass

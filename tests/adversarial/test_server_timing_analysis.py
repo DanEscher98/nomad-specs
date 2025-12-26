@@ -79,12 +79,16 @@ class KeystrokePattern:
         """
         # Pattern: quick-quick-pause-quick-quick-quick-pause
         delays = [
-            50, 50,       # Quick
-            500,          # Pause
-            50, 50, 50,   # Quick
-            500,          # Pause
-            50, 50,       # Quick
-            500,          # Pause
+            50,
+            50,  # Quick
+            500,  # Pause
+            50,
+            50,
+            50,  # Quick
+            500,  # Pause
+            50,
+            50,  # Quick
+            500,  # Pause
         ]
         return cls(delays=delays, text="distinctive")
 
@@ -96,6 +100,7 @@ class TestTimingCorrelation:
     def analyzer(self) -> TimingAnalyzer:
         """Provide a TimingAnalyzer instance."""
         from lib.attacker import TimingAnalyzer
+
         return TimingAnalyzer()
 
     def test_pearson_correlation_calculation(self) -> None:

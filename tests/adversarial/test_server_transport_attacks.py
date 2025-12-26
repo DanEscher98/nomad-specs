@@ -266,7 +266,7 @@ class TestNonceManipulation:
                     ]
                     # Nonces should be strictly increasing
                     for i in range(1, len(nonces)):
-                        assert nonces[i] > nonces[i-1], "Nonce replay detected"
+                        assert nonces[i] > nonces[i - 1], "Nonce replay detected"
 
     def test_large_nonce_counter(
         self,
@@ -362,12 +362,8 @@ class TestAmplificationAttacks:
         frames = parse_pcap(pcap_file)
 
         # Calculate amplification factor
-        to_spoofed = sum(
-            len(f.raw_bytes) for f in frames if f.dst_ip == spoofed_ip
-        )
-        from_spoofed = sum(
-            len(f.raw_bytes) for f in frames if f.src_ip == spoofed_ip
-        )
+        to_spoofed = sum(len(f.raw_bytes) for f in frames if f.dst_ip == spoofed_ip)
+        from_spoofed = sum(len(f.raw_bytes) for f in frames if f.src_ip == spoofed_ip)
 
         if from_spoofed > 0:
             amplification = to_spoofed / from_spoofed
@@ -466,12 +462,9 @@ class TestReplayAttacks:
 
         server_frames = [f for f in data_frames if f.src_ip == server_ip]
         if len(server_frames) >= 2:
-            nonces = [
-                extract_header_fields(f.raw_bytes)["nonce_counter"]
-                for f in server_frames
-            ]
+            nonces = [extract_header_fields(f.raw_bytes)["nonce_counter"] for f in server_frames]
             for i in range(1, len(nonces)):
-                assert nonces[i] > nonces[i-1]
+                assert nonces[i] > nonces[i - 1]
 
 
 # =============================================================================
@@ -495,16 +488,18 @@ class TestHeaderManipulation:
 
         sync_message = encode_sync_message(1, 0, 0, b"test")
 
-        frame = bytearray(codec.create_data_frame(
-            session_id=session_id,
-            nonce_counter=0,
-            key=key,
-            epoch=0,
-            direction=0,
-            timestamp=0,
-            timestamp_echo=0,
-            sync_message=sync_message,
-        ))
+        frame = bytearray(
+            codec.create_data_frame(
+                session_id=session_id,
+                nonce_counter=0,
+                key=key,
+                epoch=0,
+                direction=0,
+                timestamp=0,
+                timestamp_echo=0,
+                sync_message=sync_message,
+            )
+        )
 
         # Manipulate flags byte
         frame[1] = 0xFF  # Invalid flags
@@ -527,16 +522,18 @@ class TestHeaderManipulation:
 
         sync_message = encode_sync_message(1, 0, 0, b"test")
 
-        frame = bytearray(codec.create_data_frame(
-            session_id=session_id,
-            nonce_counter=0,
-            key=key,
-            epoch=0,
-            direction=0,
-            timestamp=0,
-            timestamp_echo=0,
-            sync_message=sync_message,
-        ))
+        frame = bytearray(
+            codec.create_data_frame(
+                session_id=session_id,
+                nonce_counter=0,
+                key=key,
+                epoch=0,
+                direction=0,
+                timestamp=0,
+                timestamp_echo=0,
+                sync_message=sync_message,
+            )
+        )
 
         # Try to change type to handshake
         frame[0] = 0x01

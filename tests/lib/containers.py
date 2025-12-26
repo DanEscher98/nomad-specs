@@ -74,8 +74,7 @@ class ContainerCrashError(Exception):
         self.exit_code = exit_code
         self.logs = logs
         super().__init__(
-            f"Container '{container_name}' crashed with exit code {exit_code}\n"
-            f"Last logs:\n{logs}"
+            f"Container '{container_name}' crashed with exit code {exit_code}\nLast logs:\n{logs}"
         )
 
 

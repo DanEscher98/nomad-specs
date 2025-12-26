@@ -219,9 +219,7 @@ class TestReplayWindow:
         # Replay of nonce 50 should be rejected
         assert replay_window.is_replay(50)
 
-    def test_old_nonce_within_window_accepted_if_unseen(
-        self, replay_window: ReplayWindow
-    ) -> None:
+    def test_old_nonce_within_window_accepted_if_unseen(self, replay_window: ReplayWindow) -> None:
         """Old nonce within window is accepted if not seen (out-of-order delivery)."""
         # Mark only even nonces
         for i in range(0, 100, 2):
@@ -366,9 +364,7 @@ class TestReplayCheckOrdering:
 class TestNonceReuseDetection:
     """Test detection of nonce reuse attempts."""
 
-    def test_same_nonce_different_message_detected(
-        self, processor: SecureFrameProcessor
-    ) -> None:
+    def test_same_nonce_different_message_detected(self, processor: SecureFrameProcessor) -> None:
         """Same nonce with different message is detected as replay."""
         nonce_counter = 42
         nonce = construct_nonce(processor.epoch, processor.direction, nonce_counter)

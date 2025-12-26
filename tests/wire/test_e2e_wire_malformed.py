@@ -256,7 +256,7 @@ class TestE2EInvalidAEADTag:
     ) -> None:
         """Frame with random AEAD tag is silently dropped."""
         frame = bytearray(valid_frame)
-        frame[-16:] = b"\xDE\xAD\xBE\xEF" * 4  # Random tag
+        frame[-16:] = b"\xde\xad\xbe\xef" * 4  # Random tag
         packet_sender.send_udp(bytes(frame))
 
         time.sleep(0.3)
@@ -329,10 +329,9 @@ class TestE2ENoResponse:
 
         # Should not see many frames from server to our source
         # (This assumes we know our source IP)
-        responses_to_malformed = len([
-            f for f in frames
-            if f.src_ip == "172.31.0.10" and f.dst_port != 19999
-        ])
+        responses_to_malformed = len(
+            [f for f in frames if f.src_ip == "172.31.0.10" and f.dst_port != 19999]
+        )
         # We sent a malformed packet - server should not respond to it
         # Note: There might be responses to other valid traffic
         assert responses_to_malformed < 5  # Allow some margin for other traffic

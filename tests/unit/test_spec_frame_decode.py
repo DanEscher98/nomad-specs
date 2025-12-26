@@ -117,7 +117,7 @@ class TestDataFrameHeaderParse:
         """Parse header when buffer contains extra data (full frame)."""
         # Header + some extra data simulating rest of frame
         header_data = bytes.fromhex("03000102030405060000000000000000")
-        extra_data = b"\xAA\xBB\xCC\xDD"  # Extra bytes (encrypted payload start)
+        extra_data = b"\xaa\xbb\xcc\xdd"  # Extra bytes (encrypted payload start)
 
         full_buffer = header_data + extra_data
         header = parse_data_frame_header(full_buffer)
@@ -150,11 +150,20 @@ class TestPayloadHeaderParse:
         """Parse payload header."""
         # timestamp=1000, timestamp_echo=500, payload_length=100
         # Little-endian encoded
-        data = bytes([
-            0xE8, 0x03, 0x00, 0x00,  # timestamp = 1000
-            0xF4, 0x01, 0x00, 0x00,  # timestamp_echo = 500
-            0x64, 0x00,              # payload_length = 100
-        ])
+        data = bytes(
+            [
+                0xE8,
+                0x03,
+                0x00,
+                0x00,  # timestamp = 1000
+                0xF4,
+                0x01,
+                0x00,
+                0x00,  # timestamp_echo = 500
+                0x64,
+                0x00,  # payload_length = 100
+            ]
+        )
 
         header = parse_payload_header(data)
 
@@ -200,9 +209,7 @@ class TestSyncMessageParse:
 
     def test_parse_basic_sync(self, frame_vectors: dict) -> None:
         """Parse basic sync message from vector."""
-        vector = next(
-            v for v in frame_vectors["sync_messages"] if v["name"] == "basic_sync"
-        )
+        vector = next(v for v in frame_vectors["sync_messages"] if v["name"] == "basic_sync")
 
         encoded = bytes.fromhex(vector["encoded"])
         msg = parse_sync_message(encoded)
@@ -214,9 +221,7 @@ class TestSyncMessageParse:
 
     def test_parse_ack_only_sync(self, frame_vectors: dict) -> None:
         """Parse ack-only sync message (empty diff)."""
-        vector = next(
-            v for v in frame_vectors["sync_messages"] if v["name"] == "ack_only_sync"
-        )
+        vector = next(v for v in frame_vectors["sync_messages"] if v["name"] == "ack_only_sync")
 
         encoded = bytes.fromhex(vector["encoded"])
         msg = parse_sync_message(encoded)
@@ -226,9 +231,7 @@ class TestSyncMessageParse:
 
     def test_parse_initial_sync(self, frame_vectors: dict) -> None:
         """Parse initial sync message."""
-        vector = next(
-            v for v in frame_vectors["sync_messages"] if v["name"] == "initial_sync"
-        )
+        vector = next(v for v in frame_vectors["sync_messages"] if v["name"] == "initial_sync")
 
         encoded = bytes.fromhex(vector["encoded"])
         msg = parse_sync_message(encoded)
@@ -415,16 +418,18 @@ class TestCompleteDataFrameParse:
 
         sync_message = encode_sync_message(1, 0, 0, b"test")
 
-        frame = bytearray(codec.create_data_frame(
-            session_id=session_id,
-            nonce_counter=0,
-            key=key,
-            epoch=0,
-            direction=0,
-            timestamp=0,
-            timestamp_echo=0,
-            sync_message=sync_message,
-        ))
+        frame = bytearray(
+            codec.create_data_frame(
+                session_id=session_id,
+                nonce_counter=0,
+                key=key,
+                epoch=0,
+                direction=0,
+                timestamp=0,
+                timestamp_echo=0,
+                sync_message=sync_message,
+            )
+        )
 
         # Tamper with session ID in header
         frame[2] = 0xFF
@@ -444,16 +449,18 @@ class TestCompleteDataFrameParse:
 
         sync_message = encode_sync_message(1, 0, 0, b"test")
 
-        frame = bytearray(codec.create_data_frame(
-            session_id=session_id,
-            nonce_counter=0,
-            key=key,
-            epoch=0,
-            direction=0,
-            timestamp=0,
-            timestamp_echo=0,
-            sync_message=sync_message,
-        ))
+        frame = bytearray(
+            codec.create_data_frame(
+                session_id=session_id,
+                nonce_counter=0,
+                key=key,
+                epoch=0,
+                direction=0,
+                timestamp=0,
+                timestamp_echo=0,
+                sync_message=sync_message,
+            )
+        )
 
         # Tamper with encrypted payload (after header, before tag)
         frame[20] ^= 0xFF
@@ -481,9 +488,7 @@ class TestPropertyBasedParsing:
         nonce_counter=st.integers(min_value=0, max_value=2**64 - 1),
     )
     @settings(max_examples=100)
-    def test_header_roundtrip(
-        self, flags: int, session_id: bytes, nonce_counter: int
-    ) -> None:
+    def test_header_roundtrip(self, flags: int, session_id: bytes, nonce_counter: int) -> None:
         """Encode -> Parse preserves all header fields."""
         encoded = encode_data_frame_header(
             flags=flags,

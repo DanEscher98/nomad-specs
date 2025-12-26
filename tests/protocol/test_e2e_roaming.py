@@ -104,11 +104,10 @@ class TestE2ESessionContinuity:
             direction_frames = [f for f in data_frames if f.src_ip == src_ip]
             if len(direction_frames) >= 2:
                 nonces = [
-                    extract_header_fields(f.raw_bytes)["nonce_counter"]
-                    for f in direction_frames
+                    extract_header_fields(f.raw_bytes)["nonce_counter"] for f in direction_frames
                 ]
                 for i in range(1, len(nonces)):
-                    assert nonces[i] > nonces[i-1], "Nonce didn't increase"
+                    assert nonces[i] > nonces[i - 1], "Nonce didn't increase"
 
     def test_e2e_session_survives_short_interruption(
         self,
@@ -135,11 +134,13 @@ class TestE2ESessionContinuity:
 
         # Both captures should have same session ID
         initial_sessions = {
-            f.raw_bytes[2:8] for f in initial_frames
+            f.raw_bytes[2:8]
+            for f in initial_frames
             if f.frame_type == FRAME_DATA and len(f.raw_bytes) >= 8
         }
         later_sessions = {
-            f.raw_bytes[2:8] for f in later_frames
+            f.raw_bytes[2:8]
+            for f in later_frames
             if f.frame_type == FRAME_DATA and len(f.raw_bytes) >= 8
         }
 
@@ -173,7 +174,7 @@ class TestE2EMigrationValidation:
         )
 
         # Create a frame with wrong key (simulating attacker)
-        session_id = b"\xFF\xEE\xDD\xCC\xBB\xAA"
+        session_id = b"\xff\xee\xdd\xcc\xbb\xaa"
         wrong_key = codec.deterministic_bytes("attacker", 32)
         sync_message = encode_sync_message(1, 0, 0, b"attack")
         malicious_frame = codec.create_data_frame(
@@ -301,12 +302,10 @@ class TestE2EAntiAmplification:
 
         # Count bytes between established endpoints
         server_to_client = sum(
-            len(f.raw_bytes) for f in frames
-            if f.src_ip == server_ip and f.dst_ip == client_ip
+            len(f.raw_bytes) for f in frames if f.src_ip == server_ip and f.dst_ip == client_ip
         )
         client_to_server = sum(
-            len(f.raw_bytes) for f in frames
-            if f.src_ip == client_ip and f.dst_ip == server_ip
+            len(f.raw_bytes) for f in frames if f.src_ip == client_ip and f.dst_ip == server_ip
         )
 
         # Both should have sent traffic (no limits after validation)

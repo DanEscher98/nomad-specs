@@ -202,10 +202,7 @@ def server_public_key() -> str:
         Base64-encoded public key.
     """
     # Default is the Rust implementation test key
-    return require_env(
-        "NOMAD_SERVER_PUBLIC_KEY",
-        "gqNRjwG8OsClvG2vWuafYeERaM95Pk0rTLmFAjh6JDo="
-    )
+    return require_env("NOMAD_SERVER_PUBLIC_KEY", "gqNRjwG8OsClvG2vWuafYeERaM95Pk0rTLmFAjh6JDo=")
 
 
 # =============================================================================
@@ -420,18 +417,10 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
     )
-    config.addinivalue_line(
-        "markers", "container: tests requiring docker containers"
-    )
-    config.addinivalue_line(
-        "markers", "network: tests requiring network access"
-    )
-    config.addinivalue_line(
-        "markers", "adversarial: security/fuzzing tests"
-    )
-    config.addinivalue_line(
-        "markers", "interop: cross-implementation tests"
-    )
+    config.addinivalue_line("markers", "container: tests requiring docker containers")
+    config.addinivalue_line("markers", "network: tests requiring network access")
+    config.addinivalue_line("markers", "adversarial: security/fuzzing tests")
+    config.addinivalue_line("markers", "interop: cross-implementation tests")
 
 
 def pytest_collection_modifyitems(config, items):

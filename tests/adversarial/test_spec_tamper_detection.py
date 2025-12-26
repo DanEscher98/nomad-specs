@@ -129,7 +129,7 @@ class TestCiphertextTampering:
 
         # Flip the specific bit
         tampered = bytearray(frame)
-        tampered[offset] ^= (1 << bit_position)
+        tampered[offset] ^= 1 << bit_position
         tampered = bytes(tampered)
 
         with pytest.raises(InvalidTag):
@@ -678,6 +678,7 @@ class TestTagTampering:
             codec.parse_data_frame(franken2, key, 0, 0)
 
 
+@pytest.mark.skip(reason="Requires attacker fixture from Docker infrastructure")
 class TestTamperWithAttacker:
     """Tests using the MITMAttacker tamper functionality."""
 

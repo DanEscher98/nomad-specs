@@ -19,6 +19,7 @@ Migration rules:
 from __future__ import annotations
 
 import base64
+import contextlib
 import os
 import socket
 import struct
@@ -26,7 +27,6 @@ import time
 
 import pytest
 from noise.connection import Keypair, NoiseConnection
-
 
 # =============================================================================
 # Protocol Constants
@@ -134,7 +134,7 @@ class TestE2EPortChange:
             sock1.sendto(frame1, server_address)
 
             # Get original port
-            original_port = sock1.getsockname()[1]
+            sock1.getsockname()[1]
 
         finally:
             sock1.close()
@@ -146,7 +146,7 @@ class TestE2EPortChange:
         try:
             # Bind to a different port
             sock2.bind(("", 0))
-            new_port = sock2.getsockname()[1]
+            sock2.getsockname()[1]
 
             # Ports should be different (usually)
             # Note: In rare cases they might be the same, that's OK
@@ -161,7 +161,7 @@ class TestE2EPortChange:
                 if len(response) > 0:
                     # Got response - server migrated to new address
                     assert response[0] == FRAME_DATA
-            except socket.timeout:
+            except TimeoutError:
                 # Server may not respond immediately, but shouldn't crash
                 pass
 
@@ -310,7 +310,7 @@ class TestE2EMigrationValidation:
 
         try:
             # Use wrong session ID
-            wrong_session = b"\xFF\xFF\xFF\xFF\xFF\xFF"
+            wrong_session = b"\xff\xff\xff\xff\xff\xff"
             encrypted = noise.encrypt(b"Hijack attempt")
 
             frame = bytearray()
@@ -323,10 +323,8 @@ class TestE2EMigrationValidation:
             sock2.sendto(bytes(frame), server_address)
 
             # Should be silently dropped - no response
-            try:
+            with contextlib.suppress(TimeoutError):
                 sock2.recvfrom(1024)
-            except socket.timeout:
-                pass  # Expected
 
         finally:
             sock2.close()
@@ -359,10 +357,8 @@ class TestE2EMigrationValidation:
             sock2.sendto(bytes(corrupted), server_address)
 
             # Should be silently dropped
-            try:
+            with contextlib.suppress(TimeoutError):
                 sock2.recvfrom(1024)
-            except socket.timeout:
-                pass  # Expected
 
         finally:
             sock2.close()
@@ -395,13 +391,11 @@ class TestE2EAntiAmplification:
             sock.sendto(small_data, server_address)
 
             # Should get no response (invalid frame silently dropped)
-            try:
-                response, _ = sock.recvfrom(1024)
-                # If we get a response, it should be limited
-                # (3x rule means max 96 bytes for 32 byte request)
-                # But actually we expect no response for invalid frames
-            except socket.timeout:
-                pass  # Expected - invalid frame dropped
+            # If we get a response, it should be limited
+            # (3x rule means max 96 bytes for 32 byte request)
+            # But actually we expect no response for invalid frames
+            with contextlib.suppress(TimeoutError):
+                sock.recvfrom(1024)
 
         finally:
             sock.close()
@@ -457,7 +451,7 @@ class TestE2EMultipleSocketBehavior:
         """Different sockets get different sessions."""
         sessions = []
 
-        for i in range(3):
+        for _i in range(3):
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             sock.settimeout(5.0)
             try:

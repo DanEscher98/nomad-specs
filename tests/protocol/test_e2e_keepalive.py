@@ -111,8 +111,7 @@ class TestE2EKeepaliveFormat:
 
         # Find ACK_ONLY frames
         ack_only_frames = [
-            f for f in data_frames
-            if len(f.raw_bytes) >= 2 and f.raw_bytes[1] & FLAG_ACK_ONLY
+            f for f in data_frames if len(f.raw_bytes) >= 2 and f.raw_bytes[1] & FLAG_ACK_ONLY
         ]
 
         if ack_only_frames:
@@ -120,8 +119,9 @@ class TestE2EKeepaliveFormat:
             expected_minimal = 70
             for frame in ack_only_frames:
                 # Keepalives should be around minimal size
-                assert len(frame.raw_bytes) <= expected_minimal + 10, \
+                assert len(frame.raw_bytes) <= expected_minimal + 10, (
                     f"Keepalive too large: {len(frame.raw_bytes)}"
+                )
 
 
 # =============================================================================
@@ -277,9 +277,7 @@ class TestE2ETimestamp:
 
             # Check nonces increase per direction
             for src_ip in [server_ip, client_ip]:
-                direction_frames = [
-                    f for f in data_frames if f.src_ip == src_ip
-                ]
+                direction_frames = [f for f in data_frames if f.src_ip == src_ip]
                 if len(direction_frames) >= 2:
                     nonces = [
                         extract_header_fields(f.raw_bytes)["nonce_counter"]
@@ -287,8 +285,9 @@ class TestE2ETimestamp:
                     ]
                     # Nonces should be monotonically increasing
                     for i in range(1, len(nonces)):
-                        assert nonces[i] > nonces[i-1], \
-                            f"Nonce didn't increase: {nonces[i]} <= {nonces[i-1]}"
+                        assert nonces[i] > nonces[i - 1], (
+                            f"Nonce didn't increase: {nonces[i]} <= {nonces[i - 1]}"
+                        )
 
 
 # =============================================================================
@@ -315,11 +314,11 @@ class TestE2EKeepaliveVsDataFrame:
         if len(data_frames) > 0:
             # Count frame types for verification
             ack_only = [
-                f for f in data_frames
-                if len(f.raw_bytes) >= 2 and f.raw_bytes[1] & FLAG_ACK_ONLY
+                f for f in data_frames if len(f.raw_bytes) >= 2 and f.raw_bytes[1] & FLAG_ACK_ONLY
             ]
             non_ack_only = [
-                f for f in data_frames
+                f
+                for f in data_frames
                 if len(f.raw_bytes) >= 2 and not (f.raw_bytes[1] & FLAG_ACK_ONLY)
             ]
 

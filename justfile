@@ -63,36 +63,63 @@ install:
 test: install
     cd tests && uv run pytest -v
 
-# Run all E2E tests against running containers (requires docker-up first)
-# Total: 60 tests (handshake, rekey, keepalive, roaming, replay, wire)
-test-e2e: install
-    set -a && source docker/.env && set +a && cd tests && uv run pytest protocol/test_e2e_*.py protocol/test_e2e_*_simple.py adversarial/test_e2e_*.py wire/test_wire_e2e_simple.py -v
+# -----------------------------------------------------------------------------
+# Test Categories (by infrastructure required)
+# -----------------------------------------------------------------------------
 
-# Run a specific E2E test file
-test-e2e-file file: install
+# Run spec tests (Python reference codec only - NO Docker)
+# Tests: unit/test_spec_*, protocol/test_spec_*, wire/test_spec_*, adversarial/test_spec_*
+test-spec: install
+    cd tests && uv run pytest -k "test_spec" -v
+
+# Run server tests (Python client → Docker server)
+# Tests: protocol/test_server_*, wire/test_server_*, adversarial/test_server_*
+# Requires: docker-up
+test-server: install
+    set -a && source docker/.env && set +a && cd tests && uv run pytest -k "test_server" -v
+
+# Run E2E tests (Docker client ↔ Docker server + packet capture)
+# Tests: protocol/test_e2e_*, wire/test_e2e_*, resilience/test_e2e_*
+# Requires: docker-up-capture
+test-e2e: install
+    cd tests && uv run pytest -k "test_e2e" -v
+
+# Run a specific test file
+test-file file: install
+    cd tests && uv run pytest {{ file }} -v
+
+# Run a specific test file with .env loaded (for server/e2e tests)
+test-file-env file: install
     set -a && source docker/.env && set +a && cd tests && uv run pytest {{ file }} -v
 
-# Quick E2E: start containers, test, stop
-e2e: docker-up test-e2e docker-down
+# Quick server test: start containers, test, stop
+quick-server: docker-up test-server docker-down
 
-# Run unit tests (no containers needed)
+# Quick E2E: start containers with capture, test, stop
+quick-e2e: docker-up-capture test-e2e docker-down
+
+# -----------------------------------------------------------------------------
+# Legacy/Directory-based Commands
+# -----------------------------------------------------------------------------
+
+# Run unit directory (now all test_spec_*)
 test-unit: install
     cd tests && uv run pytest unit/ -v
 
-# Run protocol tests (requires containers)
-test-protocol: install docker-up
+# Run protocol directory (mix of spec/server/e2e)
+test-protocol: install
     cd tests && uv run pytest protocol/ -v
 
-# Run wire-level tests (requires containers + capture)
-test-wire: install docker-up-capture
+# Run wire directory (mix of spec/server/e2e)
+test-wire: install
     cd tests && uv run pytest wire/ -v
 
-# Run adversarial tests (E2E - requires containers)
+# Run adversarial directory (mix of spec/server)
 test-adversarial: install
-    set -a && source docker/.env && set +a && cd tests && uv run pytest adversarial/ -v -m adversarial
+    cd tests && uv run pytest adversarial/ -v
 
-# Run resilience tests (network chaos)
-test-resilience: install docker-up
+# Run resilience directory (all E2E - requires chaos)
+test-resilience: install docker-up-chaos
     cd tests && uv run pytest resilience/ -v --timeout=120
 
 # Run interop tests (multiple implementations)
@@ -107,10 +134,6 @@ test-cov: install
 # Run tests in parallel
 test-parallel: install
     cd tests && uv run pytest -n auto -v
-
-# Run a specific test file (without .env - for unit tests)
-test-file file: install
-    cd tests && uv run pytest {{ file }} -v
 
 # =============================================================================
 # Development

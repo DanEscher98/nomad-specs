@@ -72,7 +72,9 @@ class PacketSender:
     source_port: int = 0
     interface: str = "eth0"
 
-    def send_udp(self, payload: bytes, wait_response: bool = False, timeout: float = 1.0) -> Packet | None:
+    def send_udp(
+        self, payload: bytes, wait_response: bool = False, timeout: float = 1.0
+    ) -> Packet | None:
         """Send a UDP packet.
 
         Args:
@@ -309,6 +311,7 @@ def generate_random_frame(size: int) -> bytes:
         Random bytes.
     """
     import os
+
     return os.urandom(size)
 
 
@@ -334,7 +337,7 @@ def generate_session_id_variants(base_frame: bytes) -> list[bytes]:
 
     # All ones
     ones = bytearray(frame)
-    ones[2:8] = b"\xFF" * 6
+    ones[2:8] = b"\xff" * 6
     variants.append(bytes(ones))
 
     # Incrementing

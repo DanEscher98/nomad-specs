@@ -82,9 +82,7 @@ class TestAEADVectors:
 
     def test_empty_plaintext_ack_only(self, aead_vectors: dict, codec: NomadCodec) -> None:
         """AEAD with empty plaintext (ack-only frame)."""
-        vector = next(
-            v for v in aead_vectors["vectors"] if v["name"] == "empty_plaintext_ack_only"
-        )
+        vector = next(v for v in aead_vectors["vectors"] if v["name"] == "empty_plaintext_ack_only")
 
         key = bytes.fromhex(vector["key"])
         nonce = bytes.fromhex(vector["nonce"])

@@ -384,23 +384,17 @@ class TestE2ETrafficPatterns:
         client_ip = "172.31.0.20"
 
         # Separate by direction
-        server_to_client = [
-            f for f in data_frames if f.src_ip == server_ip
-        ]
-        client_to_server = [
-            f for f in data_frames if f.src_ip == client_ip
-        ]
+        server_to_client = [f for f in data_frames if f.src_ip == server_ip]
+        client_to_server = [f for f in data_frames if f.src_ip == client_ip]
 
         # Check server's nonces increase
         if len(server_to_client) >= 2:
-            nonces = [extract_header_fields(f.raw_bytes)["nonce_counter"]
-                      for f in server_to_client]
+            nonces = [extract_header_fields(f.raw_bytes)["nonce_counter"] for f in server_to_client]
             for i in range(1, len(nonces)):
-                assert nonces[i] > nonces[i-1], "Server nonce didn't increase"
+                assert nonces[i] > nonces[i - 1], "Server nonce didn't increase"
 
         # Check client's nonces increase
         if len(client_to_server) >= 2:
-            nonces = [extract_header_fields(f.raw_bytes)["nonce_counter"]
-                      for f in client_to_server]
+            nonces = [extract_header_fields(f.raw_bytes)["nonce_counter"] for f in client_to_server]
             for i in range(1, len(nonces)):
-                assert nonces[i] > nonces[i-1], "Client nonce didn't increase"
+                assert nonces[i] > nonces[i - 1], "Client nonce didn't increase"

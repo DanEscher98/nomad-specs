@@ -180,7 +180,7 @@ class TestKeepaliveRoundtrip:
 
     def test_keepalive_roundtrip_basic(self, codec: NomadCodec) -> None:
         """Keepalive can be created and parsed."""
-        session_id = b"\xAA\xBB\xCC\xDD\xEE\xFF"
+        session_id = b"\xaa\xbb\xcc\xdd\xee\xff"
         key = codec.deterministic_bytes("keepalive_rt", 32)
 
         sync_message = encode_sync_message(
@@ -543,6 +543,7 @@ class TestKeepaliveSecurity:
 
         # Decryption with wrong key fails
         from cryptography.exceptions import InvalidTag
+
         with pytest.raises(InvalidTag):
             codec.parse_data_frame(
                 data=frame,
@@ -558,23 +559,26 @@ class TestKeepaliveSecurity:
 
         sync_message = encode_sync_message(10, 10, 0, b"")
 
-        frame = bytearray(codec.create_data_frame(
-            session_id=session_id,
-            nonce_counter=0,
-            key=key,
-            epoch=0,
-            direction=0,
-            timestamp=0,
-            timestamp_echo=0,
-            sync_message=sync_message,
-            flags=FLAG_ACK_ONLY,
-        ))
+        frame = bytearray(
+            codec.create_data_frame(
+                session_id=session_id,
+                nonce_counter=0,
+                key=key,
+                epoch=0,
+                direction=0,
+                timestamp=0,
+                timestamp_echo=0,
+                sync_message=sync_message,
+                flags=FLAG_ACK_ONLY,
+            )
+        )
 
         # Modify header (AAD)
         frame[1] = 0x00  # Clear ACK_ONLY flag
 
         # Decryption fails
         from cryptography.exceptions import InvalidTag
+
         with pytest.raises(InvalidTag):
             codec.parse_data_frame(
                 data=bytes(frame),

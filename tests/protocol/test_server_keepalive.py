@@ -22,7 +22,6 @@ import time
 import pytest
 from noise.connection import Keypair, NoiseConnection
 
-
 # =============================================================================
 # Protocol Constants
 # =============================================================================
@@ -326,7 +325,7 @@ class TestE2ETimestampBehavior:
                     if len(response) >= 16 and response[0] == FRAME_DATA:
                         server_nonce = struct.unpack("<Q", response[8:16])[0]
                         server_nonces.append(server_nonce)
-                except socket.timeout:
+                except TimeoutError:
                     pass  # Echo may not always respond
 
                 time.sleep(0.2)
@@ -334,8 +333,7 @@ class TestE2ETimestampBehavior:
             # If we got multiple responses, verify nonces increase
             if len(server_nonces) >= 2:
                 for i in range(1, len(server_nonces)):
-                    assert server_nonces[i] > server_nonces[i - 1], \
-                        "Server nonce should increase"
+                    assert server_nonces[i] > server_nonces[i - 1], "Server nonce should increase"
 
         finally:
             sock.close()
@@ -391,7 +389,7 @@ class TestE2EConnectionHealth:
                 # If we get a response, verify it's a DATA frame
                 if len(response) > 0:
                     assert response[0] == FRAME_DATA
-            except socket.timeout:
+            except TimeoutError:
                 # Echo server may not respond immediately
                 pass
 
@@ -408,7 +406,7 @@ class TestE2EConnectionHealth:
 
         try:
             # Create 3 sessions
-            for i in range(3):
+            for _i in range(3):
                 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 sock.settimeout(5.0)
                 sockets.append(sock)
@@ -417,13 +415,13 @@ class TestE2EConnectionHealth:
                 sessions.append((noise, session_id))
 
             # Send from all sessions
-            for i, (sock, (noise, session_id)) in enumerate(zip(sockets, sessions)):
+            for i, (sock, (noise, session_id)) in enumerate(zip(sockets, sessions, strict=False)):
                 frame = build_data_frame(noise, session_id, 0, f"Session {i}".encode())
                 sock.sendto(frame, server_address)
                 time.sleep(0.1)
 
             # All sessions should still work
-            for i, (sock, (noise, session_id)) in enumerate(zip(sockets, sessions)):
+            for i, (sock, (noise, session_id)) in enumerate(zip(sockets, sessions, strict=False)):
                 frame = build_data_frame(noise, session_id, 1, f"Session {i} alive".encode())
                 sock.sendto(frame, server_address)
 

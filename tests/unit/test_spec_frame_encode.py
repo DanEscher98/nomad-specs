@@ -220,9 +220,7 @@ class TestSyncMessageEncode:
 
     def test_basic_sync_message(self, frame_vectors: dict) -> None:
         """Encode basic sync message and verify against vector."""
-        vector = next(
-            v for v in frame_vectors["sync_messages"] if v["name"] == "basic_sync"
-        )
+        vector = next(v for v in frame_vectors["sync_messages"] if v["name"] == "basic_sync")
 
         diff = bytes.fromhex(vector["diff"])
         encoded = encode_sync_message(
@@ -237,9 +235,7 @@ class TestSyncMessageEncode:
 
     def test_ack_only_sync_message(self, frame_vectors: dict) -> None:
         """Encode ack-only sync message (empty diff)."""
-        vector = next(
-            v for v in frame_vectors["sync_messages"] if v["name"] == "ack_only_sync"
-        )
+        vector = next(v for v in frame_vectors["sync_messages"] if v["name"] == "ack_only_sync")
 
         encoded = encode_sync_message(
             sender_state_num=vector["sender_state_num"],
@@ -253,9 +249,7 @@ class TestSyncMessageEncode:
 
     def test_initial_sync_message(self, frame_vectors: dict) -> None:
         """Encode initial sync message."""
-        vector = next(
-            v for v in frame_vectors["sync_messages"] if v["name"] == "initial_sync"
-        )
+        vector = next(v for v in frame_vectors["sync_messages"] if v["name"] == "initial_sync")
 
         diff = bytes.fromhex(vector["diff"])
         encoded = encode_sync_message(
@@ -341,7 +335,7 @@ class TestCompleteDataFrameEncode:
 
     def test_data_frame_roundtrip(self, codec: NomadCodec) -> None:
         """Encode and decode a data frame."""
-        session_id = b"\xAA\xBB\xCC\xDD\xEE\xFF"
+        session_id = b"\xaa\xbb\xcc\xdd\xee\xff"
         key = codec.deterministic_bytes("roundtrip_key", 32)
 
         sync_message = encode_sync_message(

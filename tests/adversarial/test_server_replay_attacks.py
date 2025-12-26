@@ -218,9 +218,7 @@ class TestReplayWithModifiedCounter:
             "direction": 0,
         }
 
-    def test_modified_nonce_counter_aead_fails(
-        self, codec: NomadCodec, test_session: dict
-    ) -> None:
+    def test_modified_nonce_counter_aead_fails(self, codec: NomadCodec, test_session: dict) -> None:
         """Modifying the nonce counter in header causes AEAD failure.
 
         Spec: 1-SECURITY.md §Additional Authenticated Data (AAD)
@@ -286,6 +284,7 @@ class TestSlidingWindowMechanism:
         Spec: 1-SECURITY.md §Anti-Replay Protection
         "Above highest: Update window"
         """
+
         # Simulate a simple sliding window
         class SlidingWindow:
             def __init__(self, size: int = 2048):

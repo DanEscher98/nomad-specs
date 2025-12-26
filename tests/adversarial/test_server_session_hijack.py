@@ -64,9 +64,7 @@ class TestSessionIDRandomness:
 
         # Birthday paradox: 50% collision after ~2^24 sessions
         collision_threshold = 2 ** (bits_of_entropy / 2)
-        assert collision_threshold > 16_000_000, (
-            "Should have >16M sessions before likely collision"
-        )
+        assert collision_threshold > 16_000_000, "Should have >16M sessions before likely collision"
 
     def test_generated_session_ids_are_random(self) -> None:
         """Generated session IDs should have high entropy.
@@ -79,9 +77,7 @@ class TestSessionIDRandomness:
 
         # Check uniqueness
         unique_ids = set(session_ids)
-        assert len(unique_ids) == len(session_ids), (
-            "All generated session IDs should be unique"
-        )
+        assert len(unique_ids) == len(session_ids), "All generated session IDs should be unique"
 
         # Check byte distribution (chi-squared test approximation)
         all_bytes = b"".join(session_ids)
@@ -92,15 +88,12 @@ class TestSessionIDRandomness:
 
         # Calculate chi-squared statistic
         chi_squared = sum(
-            ((count - expected_per_byte) ** 2) / expected_per_byte
-            for count in byte_counts.values()
+            ((count - expected_per_byte) ** 2) / expected_per_byte for count in byte_counts.values()
         )
 
         # Chi-squared critical value for 255 df, p=0.01 is ~310
         # Random data should be well below this
-        assert chi_squared < 400, (
-            f"Session ID bytes not uniformly distributed (chi²={chi_squared})"
-        )
+        assert chi_squared < 400, f"Session ID bytes not uniformly distributed (chi²={chi_squared})"
 
     def test_session_ids_not_sequential(self) -> None:
         """Session IDs MUST NOT be sequential.
@@ -185,13 +178,11 @@ class TestSessionIDGuessing:
         assert session_id_space == 281474976710656  # 2^48
 
         # Even at 1 billion guesses per second
-        guesses_per_second = 10 ** 9
+        guesses_per_second = 10**9
         seconds_to_exhaust = session_id_space / guesses_per_second
         hours_to_exhaust = seconds_to_exhaust / 3600
 
-        assert hours_to_exhaust > 50, (
-            "Session ID space should take many hours to exhaust"
-        )
+        assert hours_to_exhaust > 50, "Session ID space should take many hours to exhaust"
 
         # And each guess requires network round-trip + AEAD verification
         # Realistically takes much longer
@@ -247,19 +238,13 @@ class TestSessionEnumeration:
 
         # Frame for real session with wrong tag
         real_frame_bad_tag = (
-            bytes([FRAME_DATA, 0x00])
-            + real_session_id
-            + struct.pack("<Q", 1)
-            + os.urandom(50)
+            bytes([FRAME_DATA, 0x00]) + real_session_id + struct.pack("<Q", 1) + os.urandom(50)
         )
 
         # Frame for fake session
         fake_session_id = os.urandom(SESSION_ID_SIZE)
         fake_frame = (
-            bytes([FRAME_DATA, 0x00])
-            + fake_session_id
-            + struct.pack("<Q", 1)
-            + os.urandom(50)
+            bytes([FRAME_DATA, 0x00]) + fake_session_id + struct.pack("<Q", 1) + os.urandom(50)
         )
 
         # Both should fail with same exception type
@@ -278,9 +263,7 @@ class TestSessionProbeAttacks:
         """Provide a NomadCodec instance."""
         return NomadCodec()
 
-    def test_session_probe_entropy_estimate(
-        self, session_probe: SessionProbe
-    ) -> None:
+    def test_session_probe_entropy_estimate(self, session_probe: SessionProbe) -> None:
         """Test entropy estimation for session IDs.
 
         Random session IDs should have high entropy estimate.
@@ -293,18 +276,13 @@ class TestSessionProbeAttacks:
         # Random IDs should have high entropy (close to 48 bits)
         assert entropy >= 8.0, "Random session IDs should have good entropy"
 
-    def test_sequential_session_ids_low_entropy(
-        self, session_probe: SessionProbe
-    ) -> None:
+    def test_sequential_session_ids_low_entropy(self, session_probe: SessionProbe) -> None:
         """Sequential session IDs have very low entropy.
 
         This tests the entropy estimation catches sequential patterns.
         """
         # Generate sequential session IDs (BAD - vulnerable)
-        sequential_ids = [
-            (100 + i).to_bytes(SESSION_ID_SIZE, "little")
-            for i in range(10)
-        ]
+        sequential_ids = [(100 + i).to_bytes(SESSION_ID_SIZE, "little") for i in range(10)]
 
         entropy = session_probe.entropy_estimate(sequential_ids)
 
@@ -358,9 +336,7 @@ class TestSessionHijackVectors:
         attacker_key = os.urandom(32)
         attacker_sync = codec.create_sync_message(99, 0, 0, b"hijacked!")
         nonce = codec.construct_nonce(0, 0, 100)
-        attacker_ciphertext = codec.encrypt(
-            attacker_key, nonce, attacker_sync, header
-        )
+        attacker_ciphertext = codec.encrypt(attacker_key, nonce, attacker_sync, header)
 
         hijack_frame = header + attacker_ciphertext
 

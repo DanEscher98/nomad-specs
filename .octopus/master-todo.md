@@ -1,12 +1,21 @@
 # Master Todo - Nomad Conformance Suite
 
-## Test Phases
+## Test Naming Convention
 
-> **Phase 1:** Unit tests against Python reference codec (NO DOCKER)
-> **Phase 2:** E2E tests against real implementations in Docker containers
+Tests are named by **infrastructure required** (prefix), not by what they test (directory):
 
-All `tests/unit/` tests are Phase 1 (Python-to-Python).
-All other test directories (`protocol/`, `wire/`, `adversarial/`, `resilience/`) are Phase 2 (Docker required).
+| Prefix | Meaning | Dependencies | Run Command |
+|--------|---------|--------------|-------------|
+| `test_spec_*` | Python reference codec only | None | `just test-spec` |
+| `test_server_*` | Python client → Docker server | Server container | `just test-server` |
+| `test_e2e_*` | Docker client ↔ Docker server + capture | Both containers | `just test-e2e` |
+
+**Directories** describe the property/area being tested:
+- `unit/` - Codec internals (all spec tests)
+- `protocol/` - Protocol behavior (mix)
+- `wire/` - Byte-level format (mix)
+- `adversarial/` - Security attacks (mix)
+- `resilience/` - Network chaos (all E2E)
 
 ---
 
@@ -22,31 +31,43 @@ None - all tentacles merged for Phase 1.
 
 ## Completed Tentacles
 
-| ID | Merged | Phase 1 | Phase 2 | Notes |
-|----|--------|---------|---------|-------|
-| t5-docker | b9c97e7 | ✅ | N/A | Docker infrastructure, 10 tests passing |
-| t6-vectors | 9eba181 | ✅ | N/A | Reference codec (NomadCodec), 35 tests, sync_vectors.json5 |
-| t1-security | 3f13c52 | ✅ | ✅ | Security layer, 246 unit + E2E handshake/rekey/replay |
-| t3-sync | 07c6893 | ✅ | 🔲 | Sync layer, 158 tests (diff encode/decode/apply, convergence, flow) |
-| t2-transport | b3c79c6 | ✅ | ✅ | Transport layer, 163 unit + E2E wire/keepalive/roaming |
-| t7-resilience | 118fa14 | N/A | 🔲 | Network resilience, E2E only (chaos, latency, packet loss) |
-| t8-adversarial | b91c742 | N/A | ✅ | Security adversarial, E2E replay attacks, session isolation |
+| ID | Merged | Spec | Server | E2E | Notes |
+|----|--------|------|--------|-----|-------|
+| t5-docker | b9c97e7 | ✅ | N/A | N/A | Docker infrastructure |
+| t6-vectors | 9eba181 | ✅ | N/A | N/A | Reference codec (NomadCodec), sync_vectors.json5 |
+| t1-security | 3f13c52 | ✅ | ✅ | 🔲 | Security layer, handshake/rekey/replay |
+| t3-sync | 07c6893 | ✅ | 🔲 | 🔲 | Sync layer, diff encode/decode/apply, convergence |
+| t2-transport | b3c79c6 | ✅ | ✅ | 🔲 | Transport layer, wire/keepalive/roaming |
+| t7-resilience | 118fa14 | N/A | N/A | 🔲 | Network resilience (chaos, latency, packet loss) |
+| t8-adversarial | b91c742 | ✅ | ✅ | N/A | Security adversarial, replay attacks |
 
 ---
 
-## E2E Test Suite (External Mode)
+## Server Test Suite
 
-Run with: `just test-e2e` (requires `docker-up` first)
+Run with: `just test-server` (requires `docker-up` first)
 
 | Test File | Tests | Status | Description |
 |-----------|-------|--------|-------------|
-| `protocol/test_e2e_handshake.py` | 5 | ✅ | Noise_IK handshake, session ID, data exchange |
-| `protocol/test_e2e_rekey.py` | 10 | ✅ | Session longevity, rekey frames, forward secrecy |
-| `protocol/test_e2e_keepalive_simple.py` | 12 | ✅ | Keepalive frames, session liveness, timestamps |
-| `protocol/test_e2e_roaming_simple.py` | 10 | ✅ | Port change, migration, anti-amplification |
-| `adversarial/test_e2e_replay.py` | 6 | ✅ | Replay attacks, nonce reuse, session isolation |
-| `wire/test_wire_e2e_simple.py` | 17 | ✅ | Wire format, malformed packets, session ID |
+| `protocol/test_server_handshake.py` | 5 | ✅ | Noise_IK handshake, session ID, data exchange |
+| `protocol/test_server_rekey.py` | 10 | ✅ | Session longevity, rekey frames, forward secrecy |
+| `protocol/test_server_keepalive.py` | 12 | ✅ | Keepalive frames, session liveness, timestamps |
+| `protocol/test_server_roaming.py` | 10 | ✅ | Port change, migration, anti-amplification |
+| `adversarial/test_server_replay.py` | 6 | ✅ | Replay attacks, nonce reuse, session isolation |
+| `wire/test_server_wire.py` | 17 | ✅ | Wire format, malformed packets, session ID |
 | **Total** | **60** | ✅ | All passing (1 skipped - slow test) |
+
+## E2E Test Suite (Full Docker)
+
+Run with: `just test-e2e` (requires `docker-up-capture` first)
+
+| Test File | Tests | Status | Description |
+|-----------|-------|--------|-------------|
+| `protocol/test_e2e_keepalive.py` | TBD | 🔲 | Full keepalive with packet capture |
+| `protocol/test_e2e_roaming.py` | TBD | 🔲 | Full roaming with packet capture |
+| `wire/test_e2e_wire_format.py` | TBD | 🔲 | Wire format with packet capture |
+| `wire/test_e2e_wire_malformed.py` | TBD | 🔲 | Malformed packets with capture |
+| `resilience/test_e2e_*.py` | 7 files | 🔲 | Network chaos tests |
 
 ---
 

@@ -168,9 +168,7 @@ def hchacha20(key: bytes, nonce: bytes) -> bytes:
     )
 
 
-def xchacha20_poly1305_encrypt(
-    key: bytes, nonce: bytes, plaintext: bytes, aad: bytes
-) -> bytes:
+def xchacha20_poly1305_encrypt(key: bytes, nonce: bytes, plaintext: bytes, aad: bytes) -> bytes:
     """XChaCha20-Poly1305 AEAD encryption.
 
     1. Use HChaCha20 to derive subkey from first 16 bytes of nonce
@@ -199,9 +197,7 @@ def xchacha20_poly1305_encrypt(
     return cipher.encrypt(chacha_nonce, plaintext, aad)
 
 
-def xchacha20_poly1305_decrypt(
-    key: bytes, nonce: bytes, ciphertext: bytes, aad: bytes
-) -> bytes:
+def xchacha20_poly1305_decrypt(key: bytes, nonce: bytes, ciphertext: bytes, aad: bytes) -> bytes:
     """XChaCha20-Poly1305 AEAD decryption.
 
     Args:
@@ -279,9 +275,7 @@ def parse_nonce(nonce: bytes) -> NonceComponents:
 # =============================================================================
 
 
-def encode_data_frame_header(
-    flags: int, session_id: bytes, nonce_counter: int
-) -> bytes:
+def encode_data_frame_header(flags: int, session_id: bytes, nonce_counter: int) -> bytes:
     """Encode data frame header (16 bytes, used as AAD).
 
     Args:
@@ -531,9 +525,7 @@ class NomadCodec:
 
     # Frame methods
     @staticmethod
-    def create_data_frame_header(
-        flags: int, session_id: bytes, nonce_counter: int
-    ) -> bytes:
+    def create_data_frame_header(flags: int, session_id: bytes, nonce_counter: int) -> bytes:
         """Create data frame header (16 bytes, used as AAD)."""
         return encode_data_frame_header(flags, session_id, nonce_counter)
 
@@ -543,9 +535,7 @@ class NomadCodec:
         return parse_data_frame_header(data)
 
     @staticmethod
-    def create_payload_header(
-        timestamp: int, timestamp_echo: int, payload_length: int
-    ) -> bytes:
+    def create_payload_header(timestamp: int, timestamp_echo: int, payload_length: int) -> bytes:
         """Create encrypted payload header."""
         return encode_payload_header(timestamp, timestamp_echo, payload_length)
 

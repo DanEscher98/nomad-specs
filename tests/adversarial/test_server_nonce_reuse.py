@@ -134,9 +134,7 @@ class TestNonceMonotonicity:
 
         for _ in range(10000):
             nonce = tracker.get_next_send_nonce()
-            assert nonce not in used_nonces, (
-                f"Nonce {nonce} was reused - CRITICAL VULNERABILITY"
-            )
+            assert nonce not in used_nonces, f"Nonce {nonce} was reused - CRITICAL VULNERABILITY"
             used_nonces.add(nonce)
 
     @given(initial=st.integers(min_value=0, max_value=2**62))
@@ -219,9 +217,7 @@ class TestNonceNoWrap:
         )
 
         # XOR of plaintexts
-        xor_pts = bytes(
-            a ^ b for a, b in zip(msg1[:min_len], msg2[:min_len], strict=True)
-        )
+        xor_pts = bytes(a ^ b for a, b in zip(msg1[:min_len], msg2[:min_len], strict=True))
 
         # They match! This leaks information about both plaintexts
         assert xor_cts == xor_pts, (

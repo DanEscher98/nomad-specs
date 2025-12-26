@@ -202,7 +202,9 @@ class TestE2EHandshakeWireFormat:
 
             # Verify response format
             assert len(response) >= 8, f"Response too short: {len(response)}"
-            assert response[0] == FRAME_HANDSHAKE_RESP, f"Type should be 0x02, got 0x{response[0]:02x}"
+            assert response[0] == FRAME_HANDSHAKE_RESP, (
+                f"Type should be 0x02, got 0x{response[0]:02x}"
+            )
             assert response[1] == 0x00, f"Reserved should be 0x00, got 0x{response[1]:02x}"
 
             # Session ID (6 bytes)
@@ -382,7 +384,9 @@ class TestE2EFlagsWireFormat:
                 if len(response) >= 2:
                     flags = response[1]
                     reserved_bits = flags & 0xFC
-                    assert reserved_bits == 0, f"Reserved bits should be 0, got 0x{reserved_bits:02x}"
+                    assert reserved_bits == 0, (
+                        f"Reserved bits should be 0, got 0x{reserved_bits:02x}"
+                    )
 
             except TimeoutError:
                 pass
@@ -589,7 +593,7 @@ class TestE2ESessionIDWireFormat:
             noise, session_id = complete_handshake(sock, server_address)
 
             # Build frame with wrong session ID
-            wrong_session = b"\xFF\xFF\xFF\xFF\xFF\xFF"
+            wrong_session = b"\xff\xff\xff\xff\xff\xff"
             encrypted = noise.encrypt(b"Test message")
 
             frame = bytearray()

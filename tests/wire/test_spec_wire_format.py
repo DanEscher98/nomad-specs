@@ -399,7 +399,7 @@ class TestCompleteFrameWireFormat:
 
     def test_frame_header_is_plaintext(self, codec: NomadCodec) -> None:
         """Frame header (first 16 bytes) is not encrypted."""
-        session_id = b"\xDE\xAD\xBE\xEF\xCA\xFE"
+        session_id = b"\xde\xad\xbe\xef\xca\xfe"
         key = codec.deterministic_bytes("plaintext_header", 32)
 
         sync_message = encode_sync_message(1, 0, 0, b"test")
@@ -430,22 +430,25 @@ class TestCompleteFrameWireFormat:
 
         sync_message = encode_sync_message(1, 0, 0, b"test")
 
-        frame = bytearray(codec.create_data_frame(
-            session_id=session_id,
-            nonce_counter=0,
-            key=key,
-            epoch=0,
-            direction=0,
-            timestamp=0,
-            timestamp_echo=0,
-            sync_message=sync_message,
-        ))
+        frame = bytearray(
+            codec.create_data_frame(
+                session_id=session_id,
+                nonce_counter=0,
+                key=key,
+                epoch=0,
+                direction=0,
+                timestamp=0,
+                timestamp_echo=0,
+                sync_message=sync_message,
+            )
+        )
 
         # Modify header (AAD)
         frame[1] = 0xFF
 
         # Decryption should fail
         from cryptography.exceptions import InvalidTag
+
         with pytest.raises(InvalidTag):
             codec.parse_data_frame(
                 data=bytes(frame),
@@ -634,9 +637,7 @@ class TestPropertyBasedWireFormat:
         nonce_counter=st.integers(min_value=0, max_value=2**64 - 1),
     )
     @settings(max_examples=100)
-    def test_header_byte_positions(
-        self, flags: int, session_id: bytes, nonce_counter: int
-    ) -> None:
+    def test_header_byte_positions(self, flags: int, session_id: bytes, nonce_counter: int) -> None:
         """Header fields are always at correct byte positions."""
         header = encode_data_frame_header(
             flags=flags,

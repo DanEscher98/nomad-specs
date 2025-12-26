@@ -189,9 +189,7 @@ def create_handshake_init(
 
     # Encrypted static key (32 bytes + 16 tag = 48 bytes)
     # In Noise_IK, this is encrypted with es (ephemeral-static DH)
-    es_shared = crypto_scalarmult(
-        keys.initiator_ephemeral_private, keys.responder_static_public
-    )
+    es_shared = crypto_scalarmult(keys.initiator_ephemeral_private, keys.responder_static_public)
     # Simplified: use shared secret directly as key (real impl uses Noise state machine)
     nonce = b"\x00" * AEAD_NONCE_SIZE
     encrypted_static = xchacha20_poly1305_encrypt(
@@ -201,9 +199,7 @@ def create_handshake_init(
 
     # Encrypted payload (state type ID + extensions)
     # First, derive key from es + ss
-    ss_shared = crypto_scalarmult(
-        keys.initiator_static_private, keys.responder_static_public
-    )
+    ss_shared = crypto_scalarmult(keys.initiator_static_private, keys.responder_static_public)
     payload = state_type_id.encode("utf-8")
     payload_key = bytes([a ^ b for a, b in zip(es_shared, ss_shared, strict=False)])
     nonce2 = b"\x01" + b"\x00" * 23
@@ -232,9 +228,7 @@ def create_handshake_resp(
 
     # Encrypted payload (ack + negotiated extensions)
     # Simplified: use combined shared secrets
-    ee_shared = crypto_scalarmult(
-        keys.responder_ephemeral_private, keys.initiator_ephemeral_public
-    )
+    ee_shared = crypto_scalarmult(keys.responder_ephemeral_private, keys.initiator_ephemeral_public)
     nonce = b"\x02" + b"\x00" * 23
     payload = b"\x01"  # ACK
     encrypted_payload = xchacha20_poly1305_encrypt(ee_shared, nonce, payload, b"")

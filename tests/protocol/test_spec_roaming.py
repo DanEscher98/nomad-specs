@@ -220,6 +220,7 @@ class TestMigrationValidation:
 
         # Try to parse with wrong key (simulating attacker)
         from cryptography.exceptions import InvalidTag
+
         with pytest.raises(InvalidTag):
             codec.parse_data_frame(
                 data=frame,
@@ -254,18 +255,14 @@ class TestAntiAmplification:
         assert connection_state.can_send_to(new_addr, 300)  # Total: 300
         assert not connection_state.can_send_to(new_addr, 301)  # Exceeds 3x
 
-    def test_limit_not_applied_to_validated(
-        self, connection_state: MockConnectionState
-    ) -> None:
+    def test_limit_not_applied_to_validated(self, connection_state: MockConnectionState) -> None:
         """No limit for validated addresses."""
         validated_addr = connection_state.remote_endpoint.ip
 
         # Can send any amount to validated address
         assert connection_state.can_send_to(validated_addr, 1000000)
 
-    def test_validation_removes_limit(
-        self, connection_state: MockConnectionState
-    ) -> None:
+    def test_validation_removes_limit(self, connection_state: MockConnectionState) -> None:
         """Validation removes amplification limit."""
         new_addr = "10.0.0.50"
 
@@ -277,9 +274,7 @@ class TestAntiAmplification:
         connection_state.validate(new_addr)
         assert connection_state.can_send_to(new_addr, 1000)
 
-    def test_zero_bytes_received_blocks_send(
-        self, connection_state: MockConnectionState
-    ) -> None:
+    def test_zero_bytes_received_blocks_send(self, connection_state: MockConnectionState) -> None:
         """Cannot send to address with zero bytes received."""
         new_addr = "10.0.0.50"
 
@@ -498,6 +493,7 @@ class TestMigrationRateLimiting:
 
     def test_subnet_calculation_ipv4(self) -> None:
         """Calculate /24 subnet for IPv4 addresses."""
+
         def get_ipv4_subnet(ip: str) -> str:
             # Mask to /24
             network = ipaddress.ip_network(f"{ip}/24", strict=False)
@@ -510,6 +506,7 @@ class TestMigrationRateLimiting:
 
     def test_subnet_calculation_ipv6(self) -> None:
         """Calculate /48 subnet for IPv6 addresses."""
+
         def get_ipv6_subnet(ip: str) -> str:
             network = ipaddress.ip_network(f"{ip}/48", strict=False)
             return str(network.network_address)
@@ -548,6 +545,7 @@ class TestMigrationSecurity:
 
         # Server rejects (wrong key)
         from cryptography.exceptions import InvalidTag
+
         with pytest.raises(InvalidTag):
             codec.parse_data_frame(malicious_frame, correct_key, 0, 0)
 
@@ -582,26 +580,29 @@ class TestMigrationSecurity:
     def test_session_id_binding(self, codec: NomadCodec) -> None:
         """Frames are bound to session ID (in AAD)."""
         session_id_1 = b"\x01\x02\x03\x04\x05\x06"
-        session_id_2 = b"\xFF\xFE\xFD\xFC\xFB\xFA"
+        session_id_2 = b"\xff\xfe\xfd\xfc\xfb\xfa"
         key = codec.deterministic_bytes("session_bind", 32)
 
         # Create frame with session_id_1
         sync_message = encode_sync_message(1, 0, 0, b"test")
-        frame = bytearray(codec.create_data_frame(
-            session_id=session_id_1,
-            nonce_counter=0,
-            key=key,
-            epoch=0,
-            direction=0,
-            timestamp=0,
-            timestamp_echo=0,
-            sync_message=sync_message,
-        ))
+        frame = bytearray(
+            codec.create_data_frame(
+                session_id=session_id_1,
+                nonce_counter=0,
+                key=key,
+                epoch=0,
+                direction=0,
+                timestamp=0,
+                timestamp_echo=0,
+                sync_message=sync_message,
+            )
+        )
 
         # Modify session ID in header
         frame[2:8] = session_id_2
 
         # Decryption fails (AAD mismatch)
         from cryptography.exceptions import InvalidTag
+
         with pytest.raises(InvalidTag):
             codec.parse_data_frame(bytes(frame), key, 0, 0)

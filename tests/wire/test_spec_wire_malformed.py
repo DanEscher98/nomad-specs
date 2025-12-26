@@ -242,7 +242,7 @@ class TestInvalidAEADTag:
         frame = bytearray(frame)
 
         # Replace tag with random bytes
-        frame[-16:] = b"\xDE\xAD\xBE\xEF" * 4
+        frame[-16:] = b"\xde\xad\xbe\xef" * 4
 
         with pytest.raises(InvalidTag):
             codec.parse_data_frame(data=bytes(frame), key=key, epoch=0, direction=0)
@@ -254,12 +254,10 @@ class TestInvalidAEADTag:
         for byte_offset in range(-16, 0):  # Last 16 bytes (tag)
             for bit in range(8):
                 corrupted = bytearray(frame)
-                corrupted[byte_offset] ^= (1 << bit)
+                corrupted[byte_offset] ^= 1 << bit
 
                 with pytest.raises(InvalidTag):
-                    codec.parse_data_frame(
-                        data=bytes(corrupted), key=key, epoch=0, direction=0
-                    )
+                    codec.parse_data_frame(data=bytes(corrupted), key=key, epoch=0, direction=0)
 
 
 # =============================================================================
@@ -298,9 +296,7 @@ class TestCorruptedCiphertext:
         with pytest.raises(InvalidTag):
             codec.parse_data_frame(data=bytes(frame), key=key, epoch=0, direction=0)
 
-    def test_zeroed_ciphertext(
-        self, valid_frame: tuple[bytes, bytes], codec: NomadCodec
-    ) -> None:
+    def test_zeroed_ciphertext(self, valid_frame: tuple[bytes, bytes], codec: NomadCodec) -> None:
         """Zeroed ciphertext is rejected."""
         frame, key = valid_frame
         frame = bytearray(frame)
@@ -321,9 +317,7 @@ class TestCorruptedCiphertext:
 class TestCorruptedHeader:
     """Test handling of corrupted header (AAD modification)."""
 
-    def test_corrupted_type_byte(
-        self, valid_frame: tuple[bytes, bytes], codec: NomadCodec
-    ) -> None:
+    def test_corrupted_type_byte(self, valid_frame: tuple[bytes, bytes], codec: NomadCodec) -> None:
         """Modified type byte causes AEAD failure."""
         frame, key = valid_frame
         frame = bytearray(frame)
@@ -338,9 +332,7 @@ class TestCorruptedHeader:
         with pytest.raises(InvalidTag):
             codec.parse_data_frame(data=bytes(frame), key=key, epoch=0, direction=0)
 
-    def test_corrupted_flags(
-        self, valid_frame: tuple[bytes, bytes], codec: NomadCodec
-    ) -> None:
+    def test_corrupted_flags(self, valid_frame: tuple[bytes, bytes], codec: NomadCodec) -> None:
         """Modified flags byte causes AEAD failure."""
         frame, key = valid_frame
         frame = bytearray(frame)

@@ -206,7 +206,7 @@ class TestKeepaliveFrame:
 
     def test_keepalive_roundtrip(self, codec: NomadCodec) -> None:
         """Keepalive can be created and parsed."""
-        session_id = b"\xAA\xBB\xCC\xDD\xEE\xFF"
+        session_id = b"\xaa\xbb\xcc\xdd\xee\xff"
         key = codec.deterministic_bytes("keepalive_rt", 32)
 
         sync_message = encode_sync_message(
@@ -327,9 +327,7 @@ class TestNonceConstruction:
         counter=st.integers(min_value=0, max_value=2**64 - 1),
     )
     @settings(max_examples=100)
-    def test_nonce_roundtrip_property(
-        self, epoch: int, direction: int, counter: int
-    ) -> None:
+    def test_nonce_roundtrip_property(self, epoch: int, direction: int, counter: int) -> None:
         """Any valid nonce components can be round-tripped."""
         nonce = construct_nonce(epoch=epoch, direction=direction, counter=counter)
         components = parse_nonce(nonce)
@@ -524,7 +522,7 @@ class TestSessionId:
 
     def test_session_id_preserved(self) -> None:
         """Session ID is preserved in header encoding."""
-        session_id = b"\xDE\xAD\xBE\xEF\xCA\xFE"
+        session_id = b"\xde\xad\xbe\xef\xca\xfe"
 
         header = encode_data_frame_header(
             flags=0,
@@ -538,27 +536,30 @@ class TestSessionId:
     def test_session_id_in_aad(self, codec: NomadCodec) -> None:
         """Session ID is authenticated (in AAD)."""
         session_id = b"\x01\x02\x03\x04\x05\x06"
-        wrong_session_id = b"\xFF\xFE\xFD\xFC\xFB\xFA"
+        wrong_session_id = b"\xff\xfe\xfd\xfc\xfb\xfa"
         key = codec.deterministic_bytes("session_aad", 32)
 
         sync_message = encode_sync_message(1, 0, 0, b"test")
 
-        frame = bytearray(codec.create_data_frame(
-            session_id=session_id,
-            nonce_counter=0,
-            key=key,
-            epoch=0,
-            direction=0,
-            timestamp=0,
-            timestamp_echo=0,
-            sync_message=sync_message,
-        ))
+        frame = bytearray(
+            codec.create_data_frame(
+                session_id=session_id,
+                nonce_counter=0,
+                key=key,
+                epoch=0,
+                direction=0,
+                timestamp=0,
+                timestamp_echo=0,
+                sync_message=sync_message,
+            )
+        )
 
         # Modify session ID in header (bytes 2-7)
         frame[2:8] = wrong_session_id
 
         # Decryption should fail (AAD mismatch)
         from cryptography.exceptions import InvalidTag
+
         with pytest.raises(InvalidTag):
             codec.parse_data_frame(
                 data=bytes(frame),
