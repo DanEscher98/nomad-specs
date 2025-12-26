@@ -1,0 +1,7 @@
+tentacle_id: t9-paper
+description: "arXiv paper preparation - NOMAD Protocol"
+branch: tentacle/t9-paper
+scope: "specs/, paper/"
+created: 2025-12-26
+brain_worktree: "/home/danyiel/Working/niceProjects/MoshiMoshi/nomad-specs"
+worktree_path: ".worktrees/t9-paper"
