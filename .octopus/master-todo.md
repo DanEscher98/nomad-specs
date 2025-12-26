@@ -12,17 +12,13 @@ All other test directories (`protocol/`, `wire/`, `adversarial/`, `resilience/`)
 
 ## Active Tentacles (ready to spawn)
 
-| ID | Description | Scope | Worktree | Phase 1 | Phase 2 |
-|----|-------------|-------|----------|---------|---------|
-| t2-transport | Transport layer spec + tests | specs/2-TRANSPORT.md, tests/unit/test_frame* | .worktrees/t2-transport | ✅ | 🔲 |
-| t7-resilience | Network stress testing | tests/resilience/*, tests/lib/chaos.py | .worktrees/t7-resilience | N/A | 🔲 |
-| t8-adversarial | Security red team testing | tests/adversarial/*, tests/lib/attacker.py | .worktrees/t8-adversarial | N/A | 🔲 |
+None - all tentacles merged for Phase 1.
 
 ## Pending Tentacles
 
 | ID | Description | Blocked By |
 |----|-------------|------------|
-| t4-extensions | Extension mechanism | t2 |
+| t4-extensions | Extension mechanism | Phase 2 validation |
 
 ## Completed Tentacles
 
@@ -32,6 +28,9 @@ All other test directories (`protocol/`, `wire/`, `adversarial/`, `resilience/`)
 | t6-vectors | 9eba181 | ✅ | N/A | Reference codec (NomadCodec), 35 tests, sync_vectors.json5 |
 | t1-security | 3f13c52 | ✅ | 🔲 | Security layer, 246 tests (AEAD, nonce, handshake, rekey, replay) |
 | t3-sync | 07c6893 | ✅ | 🔲 | Sync layer, 158 tests (diff encode/decode/apply, convergence, flow) |
+| t2-transport | b3c79c6 | ✅ | 🔲 | Transport layer, 163 tests (frame format, session, wire E2E) |
+| t7-resilience | 118fa14 | N/A | 🔲 | Network resilience, E2E only (chaos, latency, packet loss) |
+| t8-adversarial | b91c742 | N/A | 🔲 | Security adversarial, E2E only (replay attacks, session isolation) |
 
 ---
 
