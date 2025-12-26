@@ -4,11 +4,46 @@
  *
  * This model tests the "rekey auth key" fix for PCS against active attackers.
  *
+ * ============================================================================
+ * ADVERSARY MODEL (Dolev-Yao)
+ * ============================================================================
+ *
+ * The attacker is a network adversary with the following capabilities:
+ *
+ * ASSUMED COMPROMISED (attacker has access to):
+ *   - Session keys for epoch N (key1 in this model)
+ *   - Ephemeral keys for completed epochs
+ *   - All traffic encrypted under epoch N keys
+ *   - Full network control: intercept, modify, replay, inject messages
+ *
+ * ASSUMED UNCOMPROMISED (attacker does NOT have):
+ *   - Static private keys (s_i, s_r)
+ *   - rekey_auth_key (derived from static DH during handshake)
+ *   - Session keys for epochs before compromise (epoch 0)
+ *   - Session keys for epochs after successful rekey (epoch 2)
+ *
+ * SECURITY GOALS:
+ *   - Forward Secrecy (FS): Compromise of epoch N keys does not reveal epoch <N secrets
+ *   - Post-Compromise Security (PCS): After rekey, epoch N+1 secrets are protected
+ *     even if attacker had epoch N keys and is an active MitM
+ *
+ * ATTACK SCENARIO (what we're preventing):
+ *   1. Attacker compromises key1 (epoch 1 session key)
+ *   2. Initiator sends rekey2_msg = AEAD(e2_pub, key1, EPOCH1)
+ *   3. Attacker intercepts, decrypts with key1, learns e2_pub
+ *   4. WITHOUT FIX: Attacker generates own ephemeral, computes shared secret,
+ *      derives key2 = HKDF(DH(attacker_priv, e2_pub), EPOCH2) - ATTACK SUCCEEDS
+ *   5. WITH FIX: key2 = HKDF(DH(...) || rekey_auth_key, EPOCH2)
+ *      Attacker doesn't have rekey_auth_key - ATTACK FAILS
+ *
+ * SPEC REFERENCE: specs/1-SECURITY.md §Post-Compromise Security
+ * ============================================================================
+ *
  * FIX: During handshake, derive a rekey_auth_key from static DH:
- *   rekey_auth_key = HKDF(DH(s_i, S_r) || DH(S_i, s_r), "nomad rekey auth")
+ *   rekey_auth_key = HKDF(DH(s_i, S_r), "nomad v1 rekey auth")
  *
  * During rekey, mix rekey_auth_key into key derivation:
- *   key_new = HKDF(DH(e_i, e_r), rekey_auth_key, EPOCH)
+ *   key_new = HKDF(DH(e_i, e_r) || rekey_auth_key, "nomad v1 rekey" || EPOCH)
  *
  * This prevents an attacker with only session keys from forging rekey responses,
  * because they don't have access to the static keys used to derive rekey_auth_key.
@@ -26,27 +61,37 @@ free secret_epoch1: bitstring [private].
 free secret_epoch2: bitstring [private].
 
 (* Epoch identifiers *)
+(* SPEC: 1-SECURITY.md §Nonce Construction - epoch is 4 bytes, LE32 *)
 const EPOCH0: bitstring.
 const EPOCH1: bitstring.
 const EPOCH2: bitstring.
 
 (* ============================================================ *)
 (* Cryptographic Primitives                                     *)
+(* SPEC: 1-SECURITY.md §Cryptographic Primitives                *)
 (* ============================================================ *)
 
 type privkey.
 type pubkey.
 
+(* X25519 key generation *)
+(* SPEC: 1-SECURITY.md §Noise_IK Pattern *)
 fun pk(privkey): pubkey.
 
+(* X25519 Diffie-Hellman *)
+(* SPEC: 1-SECURITY.md §Noise_IK Pattern - DH(s, rs), DH(e, re) *)
 fun dh(privkey, pubkey): bitstring.
 equation forall a: privkey, b: privkey;
   dh(a, pk(b)) = dh(b, pk(a)).
 
+(* XChaCha20-Poly1305 AEAD *)
+(* SPEC: 1-SECURITY.md §AEAD Construction *)
 fun aead_enc(bitstring, bitstring, bitstring): bitstring.
 reduc forall msg: bitstring, key: bitstring, ad: bitstring;
   aead_dec(aead_enc(msg, key, ad), key, ad) = msg.
 
+(* BLAKE2s hash and HKDF *)
+(* SPEC: 1-SECURITY.md §Session Key Derivation - HKDF-BLAKE2s *)
 fun hash(bitstring): bitstring.
 fun hkdf(bitstring, bitstring): bitstring.
 fun hkdf3(bitstring, bitstring, bitstring): bitstring.
@@ -56,9 +101,11 @@ fun bits_to_pub(bitstring): pubkey [data, typeConverter].
 equation forall k: privkey; bits_to_pub(pub_to_bits(pk(k))) = pk(k).
 
 (* Key derivation for new epoch - NOW includes rekey_auth_key *)
+(* SPEC: 1-SECURITY.md §Post-Rekey Keys *)
 fun derive_epoch_keys_with_auth(bitstring, bitstring, bitstring): bitstring.
 
 (* Derive rekey auth key from static DH *)
+(* SPEC: 1-SECURITY.md §Rekey Authentication Key *)
 const REKEY_AUTH_CONTEXT: bitstring.
 fun derive_rekey_auth_key(bitstring): bitstring.
 
@@ -217,21 +264,25 @@ let SessionResponder(initial_key: bitstring, rekey_auth_key: bitstring) =
 
 (* ============================================================ *)
 (* Main Process                                                 *)
+(* SPEC: 1-SECURITY.md §Noise_IK Pattern, §Session Key Derivation *)
 (* ============================================================ *)
 
 process
   (* Static keys (from Noise_IK handshake) *)
+  (* SPEC: 1-SECURITY.md §Noise_IK Pattern - s, rs are static keys *)
   new s_i: privkey;  (* Initiator static private *)
   new s_r: privkey;  (* Responder static private *)
   let S_i = pk(s_i) in  (* Initiator static public *)
   let S_r = pk(s_r) in  (* Responder static public *)
 
   (* Derive rekey_auth_key from static DH during handshake *)
+  (* SPEC: 1-SECURITY.md §Rekey Authentication Key *)
   (* Both parties compute: DH(s_i, S_r) = DH(s_r, S_i) *)
   let static_dh = dh(s_i, S_r) in  (* = dh(s_r, S_i) by DH equation *)
   let rekey_auth_key = derive_rekey_auth_key(static_dh) in
 
   (* Initial session key (from handshake - simplified) *)
+  (* SPEC: 1-SECURITY.md §Session Key Derivation *)
   new initial_key: bitstring;
 
   (
