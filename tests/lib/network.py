@@ -12,6 +12,7 @@ Uses scapy for low-level packet manipulation.
 
 from __future__ import annotations
 
+import os
 import struct
 import time
 from dataclasses import dataclass, field
@@ -29,6 +30,15 @@ log = structlog.get_logger()
 
 # Default Nomad port
 NOMAD_PORT = 19999
+
+
+def get_default_interface() -> str:
+    """Get the default network interface from environment or fallback.
+
+    Returns:
+        Network interface name (e.g., 'eth0', 'br-xxx', 'docker0').
+    """
+    return os.environ.get("NOMAD_TEST_INTERFACE", "eth0")
 
 
 @dataclass
@@ -70,7 +80,7 @@ class PacketSender:
     target_port: int = NOMAD_PORT
     source_ip: str | None = None
     source_port: int = 0
-    interface: str = "eth0"
+    interface: str = field(default_factory=get_default_interface)
 
     def send_udp(
         self, payload: bytes, wait_response: bool = False, timeout: float = 1.0
@@ -150,7 +160,7 @@ class PacketSender:
 class PacketCapture:
     """Captures packets from the network."""
 
-    interface: str = "eth0"
+    interface: str = field(default_factory=get_default_interface)
     filter_expr: str = f"udp port {NOMAD_PORT}"
     captured: list[CapturedFrame] = field(default_factory=list)
     _stop_sniff: bool = False

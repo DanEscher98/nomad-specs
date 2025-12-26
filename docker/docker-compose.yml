@@ -48,9 +48,9 @@ services:
       - "19999:19999/udp"
       - "8080:8080"
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8080/health"]
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8080'"]
       interval: 1s
-      timeout: 1s
+      timeout: 2s
       retries: 30
       start_period: 5s
     restart: unless-stopped
@@ -74,6 +74,44 @@ services:
     stdin_open: true
     tty: true
     restart: unless-stopped
+
+  # ===========================================================================
+  # Test Runner (for scapy-based tests)
+  # ===========================================================================
+
+  # Test runner container for network-level tests (transport attacks, etc.)
+  # Uses scapy for raw packet injection/capture - needs NET_RAW capability
+  test-runner:
+    image: python:3.13-slim
+    container_name: nomad-test-runner
+    working_dir: /tests
+    environment:
+      - NOMAD_SERVER_HOST=172.28.0.10
+      - NOMAD_PORT=19999
+      - NOMAD_TEST_INTERFACE=eth0
+      - NOMAD_EXTERNAL_CONTAINERS=1
+      - SERVER_PUBLIC_KEY=${SERVER_PUBLIC_KEY:-gqNRjwG8OsClvG2vWuafYeERaM95Pk0rTLmFAjh6JDo=}
+    networks:
+      nomad-net:
+        ipv4_address: 172.28.0.100
+    volumes:
+      - ../tests:/tests:ro
+      - test-venv:/tests/.venv
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    depends_on:
+      nomad-server:
+        condition: service_healthy
+    command: >
+      bash -c "
+        apt-get update && apt-get install -y curl libpcap-dev &&
+        pip install uv &&
+        uv sync &&
+        tail -f /dev/null
+      "
+    profiles:
+      - test-runner
 
   # ===========================================================================
   # Observability Sidecars
@@ -267,4 +305,6 @@ networks:
 
 volumes:
   capture:
+    driver: local
+  test-venv:
     driver: local

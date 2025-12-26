@@ -31,6 +31,14 @@ docker-up-capture:
 docker-up-chaos:
     docker compose -f docker/docker-compose.yml --profile chaos up -d
 
+# Start with test-runner (for scapy-based tests)
+docker-up-runner:
+    docker compose -f docker/docker-compose.yml --profile test-runner up -d
+
+# Run tests inside test-runner container (for network-level tests)
+docker-test-runner *args:
+    docker compose -f docker/docker-compose.yml exec test-runner uv run pytest {{ args }}
+
 # Stop and remove test containers
 docker-down:
     docker compose -f docker/docker-compose.yml down -v

@@ -73,6 +73,15 @@ log = structlog.get_logger()
 NOMAD_PORT = 19999
 
 
+def get_default_interface() -> str:
+    """Get the default network interface from environment or fallback.
+
+    Returns:
+        Network interface name (e.g., 'eth0', 'br-xxx', 'docker0').
+    """
+    return os.environ.get("NOMAD_TEST_INTERFACE", "eth0")
+
+
 @dataclass
 class CapturedFrame:
     """A captured NOMAD protocol frame with metadata."""
@@ -125,7 +134,7 @@ class MITMAttacker:
     with NOMAD protocol frames for security testing purposes.
 
     Example usage:
-        attacker = MITMAttacker(interface="eth0")
+        attacker = MITMAttacker()  # Uses NOMAD_TEST_INTERFACE env var
 
         # Capture traffic
         frames = attacker.capture_traffic(count=10, timeout=5.0)
@@ -142,18 +151,18 @@ class MITMAttacker:
 
     def __init__(
         self,
-        interface: str = "eth0",
+        interface: str | None = None,
         target_ip: str | None = None,
         target_port: int = NOMAD_PORT,
     ) -> None:
         """Initialize the MITM attacker.
 
         Args:
-            interface: Network interface to capture on.
+            interface: Network interface to capture on (default: from NOMAD_TEST_INTERFACE).
             target_ip: Target IP address for injection.
             target_port: Target port (default: 19999).
         """
-        self.interface = interface
+        self.interface = interface or get_default_interface()
         self.target_ip = target_ip
         self.target_port = target_port
         self.stats = AttackStats()
@@ -657,14 +666,14 @@ class SessionProbe:
 
 # Convenience function for pytest fixtures
 def create_attacker(
-    interface: str = "eth0",
+    interface: str | None = None,
     target_ip: str | None = None,
     target_port: int = NOMAD_PORT,
 ) -> MITMAttacker:
     """Create a configured MITM attacker instance.
 
     Args:
-        interface: Network interface.
+        interface: Network interface (default: from NOMAD_TEST_INTERFACE).
         target_ip: Target IP address.
         target_port: Target port.
 
