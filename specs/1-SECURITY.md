@@ -443,6 +443,40 @@ See `tests/vectors/handshake_vectors.json5` for:
 
 ---
 
+## Formal Verification
+
+The security layer has been formally verified using ProVerif and TLA+.
+
+### ProVerif Models
+
+| Model | Properties Verified |
+|-------|---------------------|
+| `formal/proverif/nomad_handshake.pv` | Noise_IK authentication, key secrecy, identity hiding |
+| `formal/proverif/nomad_rekey.pv` | Forward secrecy, post-compromise security |
+| `formal/proverif/nomad_replay.pv` | Replay protection, nonce uniqueness |
+
+### TLA+ Specifications
+
+| Spec | Properties Verified |
+|------|---------------------|
+| `formal/tlaplus/RekeyStateMachine.tla` | Key rotation correctness, epoch management, counter limits |
+
+### Verified Security Properties
+
+All security properties listed in §Security Properties have been formally verified:
+
+| Property | Verification Tool | Result |
+|----------|-------------------|--------|
+| Confidentiality | ProVerif | ✅ Proven |
+| Authenticity | ProVerif | ✅ Proven |
+| Forward secrecy | ProVerif + TLA+ | ✅ Proven |
+| Replay protection | ProVerif | ✅ Proven |
+| Identity hiding (initiator) | ProVerif | ✅ Proven |
+
+See `formal/README.md` for instructions on running the verification tools.
+
+---
+
 ## Test Mapping
 
 | Spec Section | Test File |

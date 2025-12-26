@@ -6,23 +6,23 @@
 ## Tasks
 
 ### ProVerif Security Models
-- [ ] Write ProVerif model for Noise_IK handshake (authentication, key secrecy)
-- [ ] Write ProVerif model for forward secrecy (rekey mechanism)
-- [ ] Write ProVerif model for replay protection
+- [x] Write ProVerif model for Noise_IK handshake (authentication, key secrecy)
+- [x] Write ProVerif model for forward secrecy (rekey mechanism)
+- [x] Write ProVerif model for replay protection
 
 ### TLA+ State Machine Specs
-- [ ] Write TLA+ spec for sync layer convergence
-- [ ] Write TLA+ spec for rekey state machine
-- [ ] Write TLA+ spec for roaming/migration
+- [x] Write TLA+ spec for sync layer convergence
+- [x] Write TLA+ spec for rekey state machine
+- [x] Write TLA+ spec for roaming/migration
 
 ### Cross-Validation with Test Vectors
-- [ ] Extract symbolic traces from ProVerif → compare with handshake_vectors.json5
-- [ ] Generate TLA+ state sequences → compare with nonce/rekey vector transitions
-- [ ] Document any discrepancies between formal model and test vectors
+- [x] Extract symbolic traces from ProVerif → compare with handshake_vectors.json5
+- [x] Generate TLA+ state sequences → compare with nonce/rekey vector transitions
+- [x] Document any discrepancies between formal model and test vectors
 
 ### Documentation
-- [ ] Create formal/README.md documenting models and how to run them
-- [ ] Add formal verification references to specs (1-SECURITY.md, 3-SYNC.md)
+- [x] Create formal/README.md documenting models and how to run them
+- [x] Add formal verification references to specs (1-SECURITY.md, 2-TRANSPORT.md, 3-SYNC.md)
 - [ ] Add "Formal Verification" section to arXiv paper (coordinate with t9-paper)
 
 ## Notes
@@ -40,8 +40,31 @@ Sync properties to verify (from 3-SYNC.md):
 - Monotonic versions: Out-of-order handled via version comparison
 - Eventual consistency: State converges when any message gets through
 
+### Files Created
+
+**ProVerif Models:**
+- `formal/proverif/nomad_handshake.pv` - Noise_IK handshake security
+- `formal/proverif/nomad_rekey.pv` - Forward secrecy via rekeying
+- `formal/proverif/nomad_replay.pv` - Replay protection
+
+**TLA+ Specifications:**
+- `formal/tlaplus/SyncLayer.tla` - Sync layer convergence
+- `formal/tlaplus/RekeyStateMachine.tla` - Rekey state machine
+- `formal/tlaplus/Roaming.tla` - Connection migration
+
+**Documentation:**
+- `formal/README.md` - Main documentation
+- `formal/CROSS_VALIDATION.md` - Test vector correspondence
+
 ## Blocked
-<!-- If scope exceeded, document here and STOP -->
+
+### Coordination with t9-paper
+**Need:** Add "Formal Verification" section to arXiv paper
+**Status:** Waiting for t9-paper tentacle to provide paper structure
+**Suggested content:**
+- Summary of ProVerif security proofs
+- TLA+ state machine verification
+- Reference to formal/ directory for full models
 
 ---
 *Auto-generated from .octopus/master-todo.md*
