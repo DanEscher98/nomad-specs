@@ -54,7 +54,6 @@
 
 \author{
     Danyiel Colin\\
-    \textit{Independent Researcher}\\
     \texttt{amaniel2718@protonmail.com}
 }
 
@@ -245,10 +244,11 @@ After successful handshake, both parties derive symmetric session keys using HKD
 
 Session keys are derived as:
 \begin{equation}
-(\mathit{init\_key}, \mathit{resp\_key}) = \text{HKDF}(\mathit{hash}, \text{``nomad v1 session keys''}, 64)
+(k_i, k_r) = \text{HKDF}(h, \text{``nomad v1 keys''}, 64)
 \end{equation}
+where $k_i$ and $k_r$ are the initiator and responder keys, and $h$ is the handshake hash.
 
-The initiator uses $\mathit{init\_key}$ for sending and $\mathit{resp\_key}$ for receiving; the responder uses the inverse.
+The initiator uses $k_i$ for sending and $k_r$ for receiving; the responder uses the inverse.
 
 \subsection{Nonce Construction}
 
@@ -505,9 +505,9 @@ Test vectors are generated using reference cryptographic libraries (Python \text
 
 We use Hypothesis~\cite{hypothesis} for property-based testing. Key properties verified:
 \begin{itemize}
-    \item Idempotence: $\mathit{apply}(s, d) = \mathit{apply}(\mathit{apply}(s, d), d)$
-    \item Convergence: arbitrary message orderings reach same state
-    \item Replay rejection: repeated nonces are detected
+    \item Idempotence: $a(s,d) = a(a(s,d), d)$ where $a$ is apply
+    \item Convergence: arbitrary orderings reach same state
+    \item Replay rejection: repeated nonces detected
     \item Nonce uniqueness: no collisions within epoch
 \end{itemize}
 
