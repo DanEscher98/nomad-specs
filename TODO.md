@@ -54,6 +54,10 @@ Prepare the NOMAD Protocol for arXiv publication. Create a professional academic
 - [ ] License selection (CC BY)
 - [ ] Abstract metadata for arXiv submission
 
+### Phase 6: Supplementary Documents
+- [x] Constants mapping document (all constants, rationale, external refs)
+- [x] Annotated bibliography (why each reference is relevant)
+
 ---
 
 ## Key Contributions to Highlight
