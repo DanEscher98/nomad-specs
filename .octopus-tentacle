@@ -1,0 +1,7 @@
+tentacle_id: t4-extensions
+description: "Extension mechanism tests"
+branch: tentacle/t4-extensions
+scope: "specs/4-EXTENSIONS.md, tests/protocol/test_*extension*"
+created: 2025-12-25
+brain_worktree: "/home/danyiel/Working/niceProjects/MoshiMoshi/nomad-specs"
+worktree_path: ".worktrees/t4-extensions"
