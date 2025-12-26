@@ -8,14 +8,15 @@
 {
   "_metadata": {
     "description": "Handshake structure test vectors for NOMAD v1.0",
-    "generated": "2025-12-25T20:21:39.183638Z",
+    "generated": "2025-12-26T08:56:36.331010Z",
     "generator": "specs/generate_vectors.py",
     "protocol_version": "1.0.0"
   },
   "_notes": [
     "Full Noise_IK test vectors require the snow library",
     "These vectors test frame structure, not crypto correctness",
-    "For crypto validation, use snow's test vectors"
+    "For crypto validation, use snow's test vectors",
+    "rekey_auth_key is derived from static DH for post-compromise security"
   ],
   "keypairs": [
     {
@@ -121,5 +122,31 @@
       }
     ],
     "minimum_size": 56
+  },
+  "key_derivation": {
+    "description": "Key derivation test vectors (SECURITY.md \u00a7Session Key Derivation)",
+    "_notes": [
+      "static_dh = DH(initiator_static_priv, responder_static_pub)",
+      "rekey_auth_key = HKDF-Expand(static_dh, 'nomad v1 rekey auth', 32)",
+      "session_keys = HKDF-Expand(handshake_hash, 'nomad v1 session keys', 64)",
+      "rekey_auth_key provides post-compromise security during rekeying"
+    ],
+    "static_dh": {
+      "initiator_static_private": "60626566333233326635353764633630366435353961343239373438323465773038623863616431626232333935383936666139306436643336633534386133",
+      "responder_static_public": "c4f45ce2cb03853ca359acde14c04e76242c71e896e561765ad5d64a10f61e0c",
+      "shared_secret": "57fbeea357c6ca4af3654988d78e020ccc6f4bc56db385bff4a46084b1187266"
+    },
+    "rekey_auth_key": {
+      "input_static_dh": "57fbeea357c6ca4af3654988d78e020ccc6f4bc56db385bff4a46084b1187266",
+      "info": "nomad v1 rekey auth",
+      "output": "48c391a58d3e6fe3e5c463cd874b4565b752da33d63b9d93f9a469549ebbbe09",
+      "output_length": 32
+    },
+    "session_keys": {
+      "handshake_hash": "3966393065363433373163656331653665663135303138616562633161656264",
+      "info": "nomad v1 session keys",
+      "initiator_key": "972b06124d4f015a5c8a8ad149bf313a7764fe845584650937a1091c87809183",
+      "responder_key": "24ad816e3b591f1f7db88e221d1c2ab0cae007d2ec6db204993db1a31e4d908d"
+    }
   }
 }

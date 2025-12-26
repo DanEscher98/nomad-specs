@@ -35,6 +35,8 @@ from typing import Any
 # Check dependencies
 try:
     from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
+    from cryptography.hazmat.primitives.kdf.hkdf import HKDFExpand
+    from cryptography.hazmat.primitives import hashes
     from nacl.bindings import (
         crypto_scalarmult,
         crypto_scalarmult_base,
@@ -67,6 +69,11 @@ AEAD_TAG_SIZE = 16
 AEAD_NONCE_SIZE = 24  # XChaCha20
 PUBLIC_KEY_SIZE = 32
 PRIVATE_KEY_SIZE = 32
+
+# Key derivation constants (from SECURITY.md)
+SESSION_KEY_INFO = b"nomad v1 session keys"
+REKEY_AUTH_INFO = b"nomad v1 rekey auth"
+REKEY_INFO_PREFIX = b"nomad v1 rekey"
 
 # Output directory
 VECTORS_DIR = Path(__file__).parent.parent / "tests" / "vectors"
@@ -107,6 +114,48 @@ def deterministic_bytes(seed: str, length: int) -> bytes:
         result += chunk
         counter += 1
     return result[:length]
+
+
+# =============================================================================
+# HKDF Key Derivation (from SECURITY.md)
+# =============================================================================
+
+
+def hkdf_expand(prk: bytes, info: bytes, length: int) -> bytes:
+    """HKDF-Expand using SHA-256."""
+    hkdf = HKDFExpand(
+        algorithm=hashes.SHA256(),
+        length=length,
+        info=info,
+    )
+    return hkdf.derive(prk)
+
+
+def derive_session_keys(handshake_hash: bytes) -> tuple[bytes, bytes]:
+    """Derive session keys for epoch 0 from handshake hash."""
+    key_material = hkdf_expand(handshake_hash, SESSION_KEY_INFO, 64)
+    return key_material[:32], key_material[32:]
+
+
+def derive_rekey_auth_key(static_dh_secret: bytes) -> bytes:
+    """Derive rekey authentication key from static DH secret."""
+    return hkdf_expand(static_dh_secret, REKEY_AUTH_INFO, 32)
+
+
+def derive_rekey_keys(ephemeral_dh: bytes, rekey_auth_key: bytes, epoch: int) -> tuple[bytes, bytes]:
+    """Derive new session keys during rekey (with PCS).
+
+    Per SECURITY.md §Post-Rekey Keys:
+        (new_initiator_key, new_responder_key) = HKDF-Expand(
+            ephemeral_dh || rekey_auth_key,
+            "nomad v1 rekey" || LE32(epoch),
+            64
+        )
+    """
+    prk = ephemeral_dh + rekey_auth_key
+    info = REKEY_INFO_PREFIX + struct.pack("<I", epoch)
+    key_material = hkdf_expand(prk, info, 64)
+    return key_material[:32], key_material[32:]
 
 
 # =============================================================================
@@ -715,10 +764,12 @@ def generate_handshake_vectors() -> dict[str, Any]:
             "Full Noise_IK test vectors require the snow library",
             "These vectors test frame structure, not crypto correctness",
             "For crypto validation, use snow's test vectors",
+            "rekey_auth_key is derived from static DH for post-compromise security",
         ],
         "keypairs": [],
         "handshake_init_structure": {},
         "handshake_resp_structure": {},
+        "key_derivation": {},
     }
 
     # Generate deterministic keypairs for testing
@@ -729,8 +780,10 @@ def generate_handshake_vectors() -> dict[str, Any]:
         ("responder_ephemeral", "nomad-responder-ephemeral-seed"),
     ]
 
+    keypair_data = {}
     for name, seed in keypairs:
         priv, pub = deterministic_keypair(seed)
+        keypair_data[name] = {"private": priv, "public": pub}
         vectors["keypairs"].append({
             "name": name,
             "seed": seed,
@@ -766,6 +819,190 @@ def generate_handshake_vectors() -> dict[str, Any]:
             {"name": "encrypted_payload", "offset": 40, "size": "variable", "value": "(negotiated extensions + tag)"},
         ],
         "minimum_size": 56,
+    }
+
+    # Key derivation vectors (PCS fix)
+    # Compute static DH: DH(s_initiator, S_responder)
+    initiator_static_priv = keypair_data["initiator_static"]["private"]
+    responder_static_pub = keypair_data["responder_static"]["public"]
+    static_dh = crypto_scalarmult(initiator_static_priv, responder_static_pub)
+
+    # Derive rekey_auth_key
+    rekey_auth_key = derive_rekey_auth_key(static_dh)
+
+    # Use a deterministic handshake hash for session key derivation example
+    handshake_hash = deterministic_bytes("handshake-hash-seed", 32)
+    initiator_key, responder_key = derive_session_keys(handshake_hash)
+
+    vectors["key_derivation"] = {
+        "description": "Key derivation test vectors (SECURITY.md §Session Key Derivation)",
+        "_notes": [
+            "static_dh = DH(initiator_static_priv, responder_static_pub)",
+            "rekey_auth_key = HKDF-Expand(static_dh, 'nomad v1 rekey auth', 32)",
+            "session_keys = HKDF-Expand(handshake_hash, 'nomad v1 session keys', 64)",
+            "rekey_auth_key provides post-compromise security during rekeying",
+        ],
+        "static_dh": {
+            "initiator_static_private": initiator_static_priv.hex(),
+            "responder_static_public": responder_static_pub.hex(),
+            "shared_secret": static_dh.hex(),
+        },
+        "rekey_auth_key": {
+            "input_static_dh": static_dh.hex(),
+            "info": REKEY_AUTH_INFO.decode("utf-8"),
+            "output": rekey_auth_key.hex(),
+            "output_length": 32,
+        },
+        "session_keys": {
+            "handshake_hash": handshake_hash.hex(),
+            "info": SESSION_KEY_INFO.decode("utf-8"),
+            "initiator_key": initiator_key.hex(),
+            "responder_key": responder_key.hex(),
+        },
+    }
+
+    return vectors
+
+
+def generate_rekey_vectors() -> dict[str, Any]:
+    """Generate rekey test vectors for post-compromise security.
+
+    These vectors test the PCS fix: rekey key derivation that mixes
+    rekey_auth_key to prevent active attackers from maintaining access.
+    """
+    vectors = {
+        "_metadata": {
+            "description": "Rekey test vectors for NOMAD v1.0 (PCS fix)",
+            "generated": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "generator": "specs/generate_vectors.py",
+            "protocol_version": NOMAD_VERSION,
+        },
+        "_notes": [
+            "These vectors test the Post-Compromise Security (PCS) fix",
+            "rekey_auth_key is derived from static DH during handshake",
+            "New keys = HKDF(ephemeral_dh || rekey_auth_key, 'nomad v1 rekey' || LE32(epoch), 64)",
+            "An attacker with only session keys cannot derive new rekey keys",
+        ],
+        "rekey_vectors": [],
+    }
+
+    # Use same keypairs as handshake vectors for consistency
+    initiator_static_priv, initiator_static_pub = deterministic_keypair("nomad-initiator-static-seed")
+    responder_static_priv, responder_static_pub = deterministic_keypair("nomad-responder-static-seed")
+
+    # Compute static DH and rekey_auth_key (established during handshake)
+    static_dh = crypto_scalarmult(initiator_static_priv, responder_static_pub)
+    rekey_auth_key = derive_rekey_auth_key(static_dh)
+
+    # Vector 1: Epoch 0 → 1 transition
+    e1_init_priv, e1_init_pub = deterministic_keypair("rekey-epoch1-initiator-ephemeral")
+    e1_resp_priv, e1_resp_pub = deterministic_keypair("rekey-epoch1-responder-ephemeral")
+    e1_ephemeral_dh = crypto_scalarmult(e1_init_priv, e1_resp_pub)
+    e1_init_key, e1_resp_key = derive_rekey_keys(e1_ephemeral_dh, rekey_auth_key, epoch=1)
+
+    vectors["rekey_vectors"].append({
+        "name": "epoch_0_to_1",
+        "description": "First rekey: transition from epoch 0 to epoch 1",
+        "epoch": 1,
+        "initiator_ephemeral": {
+            "seed": "rekey-epoch1-initiator-ephemeral",
+            "private_key": e1_init_priv.hex(),
+            "public_key": e1_init_pub.hex(),
+        },
+        "responder_ephemeral": {
+            "seed": "rekey-epoch1-responder-ephemeral",
+            "private_key": e1_resp_priv.hex(),
+            "public_key": e1_resp_pub.hex(),
+        },
+        "ephemeral_dh": e1_ephemeral_dh.hex(),
+        "rekey_auth_key": rekey_auth_key.hex(),
+        "info": (REKEY_INFO_PREFIX + struct.pack("<I", 1)).hex(),
+        "info_decoded": {
+            "prefix": REKEY_INFO_PREFIX.decode("utf-8"),
+            "epoch_le32": 1,
+        },
+        "new_initiator_key": e1_init_key.hex(),
+        "new_responder_key": e1_resp_key.hex(),
+    })
+
+    # Vector 2: Epoch 1 → 2 transition (the PCS case)
+    e2_init_priv, e2_init_pub = deterministic_keypair("rekey-epoch2-initiator-ephemeral")
+    e2_resp_priv, e2_resp_pub = deterministic_keypair("rekey-epoch2-responder-ephemeral")
+    e2_ephemeral_dh = crypto_scalarmult(e2_init_priv, e2_resp_pub)
+    e2_init_key, e2_resp_key = derive_rekey_keys(e2_ephemeral_dh, rekey_auth_key, epoch=2)
+
+    vectors["rekey_vectors"].append({
+        "name": "epoch_1_to_2_pcs_case",
+        "description": "Second rekey: epoch 1→2 (PCS test - attacker with epoch 1 keys cannot derive epoch 2)",
+        "epoch": 2,
+        "_pcs_note": "Even if attacker has epoch 1 keys, they need rekey_auth_key to compute epoch 2 keys",
+        "initiator_ephemeral": {
+            "seed": "rekey-epoch2-initiator-ephemeral",
+            "private_key": e2_init_priv.hex(),
+            "public_key": e2_init_pub.hex(),
+        },
+        "responder_ephemeral": {
+            "seed": "rekey-epoch2-responder-ephemeral",
+            "private_key": e2_resp_priv.hex(),
+            "public_key": e2_resp_pub.hex(),
+        },
+        "ephemeral_dh": e2_ephemeral_dh.hex(),
+        "rekey_auth_key": rekey_auth_key.hex(),
+        "info": (REKEY_INFO_PREFIX + struct.pack("<I", 2)).hex(),
+        "info_decoded": {
+            "prefix": REKEY_INFO_PREFIX.decode("utf-8"),
+            "epoch_le32": 2,
+        },
+        "new_initiator_key": e2_init_key.hex(),
+        "new_responder_key": e2_resp_key.hex(),
+    })
+
+    # Vector 3: High epoch number
+    e100_init_priv, e100_init_pub = deterministic_keypair("rekey-epoch100-initiator-ephemeral")
+    e100_resp_priv, e100_resp_pub = deterministic_keypair("rekey-epoch100-responder-ephemeral")
+    e100_ephemeral_dh = crypto_scalarmult(e100_init_priv, e100_resp_pub)
+    e100_init_key, e100_resp_key = derive_rekey_keys(e100_ephemeral_dh, rekey_auth_key, epoch=100)
+
+    vectors["rekey_vectors"].append({
+        "name": "epoch_high_number",
+        "description": "High epoch number (100) - tests epoch encoding in info parameter",
+        "epoch": 100,
+        "initiator_ephemeral": {
+            "seed": "rekey-epoch100-initiator-ephemeral",
+            "private_key": e100_init_priv.hex(),
+            "public_key": e100_init_pub.hex(),
+        },
+        "responder_ephemeral": {
+            "seed": "rekey-epoch100-responder-ephemeral",
+            "private_key": e100_resp_priv.hex(),
+            "public_key": e100_resp_pub.hex(),
+        },
+        "ephemeral_dh": e100_ephemeral_dh.hex(),
+        "rekey_auth_key": rekey_auth_key.hex(),
+        "info": (REKEY_INFO_PREFIX + struct.pack("<I", 100)).hex(),
+        "info_decoded": {
+            "prefix": REKEY_INFO_PREFIX.decode("utf-8"),
+            "epoch_le32": 100,
+        },
+        "new_initiator_key": e100_init_key.hex(),
+        "new_responder_key": e100_resp_key.hex(),
+    })
+
+    # Add intermediate values section for debugging
+    vectors["intermediate_values"] = {
+        "description": "Intermediate values for debugging implementations",
+        "static_keys": {
+            "initiator_static_private": initiator_static_priv.hex(),
+            "initiator_static_public": initiator_static_pub.hex(),
+            "responder_static_private": responder_static_priv.hex(),
+            "responder_static_public": responder_static_pub.hex(),
+        },
+        "static_dh": static_dh.hex(),
+        "rekey_auth_key": {
+            "input": static_dh.hex(),
+            "info": REKEY_AUTH_INFO.decode("utf-8"),
+            "output": rekey_auth_key.hex(),
+        },
     }
 
     return vectors
@@ -821,9 +1058,12 @@ def main():
     sync_vectors = generate_sync_vectors()
     write_json5(sync_vectors, VECTORS_DIR / "sync_vectors.json5")
 
+    rekey_vectors = generate_rekey_vectors()
+    write_json5(rekey_vectors, VECTORS_DIR / "rekey_vectors.json5")
+
     print()
     print("=" * 60)
-    print(f"Generated {5} vector files in {VECTORS_DIR}")
+    print(f"Generated 6 vector files in {VECTORS_DIR}")
     print()
     print("To verify idempotency, run again - output should be identical.")
     print("(Except for _metadata.generated timestamp)")

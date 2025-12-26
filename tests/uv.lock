@@ -450,7 +450,9 @@ dev = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "mypy" },
     { name = "ruff" },
+    { name = "types-docker" },
 ]
 
 [package.metadata]
@@ -477,7 +479,11 @@ requires-dist = [
 provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "ruff", specifier = ">=0.14.10" }]
+dev = [
+    { name = "mypy", specifier = ">=1.19.1" },
+    { name = "ruff", specifier = ">=0.14.10" },
+    { name = "types-docker", specifier = ">=7.1.0.20251202" },
+]
 
 [[package]]
 name = "packaging"
