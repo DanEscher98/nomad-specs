@@ -1,20 +1,28 @@
 # Nomad Protocol Conformance Test Infrastructure
 #
-# This compose file supports plugging in any Nomad implementation.
-# Set SERVER_CONTEXT/SERVER_DOCKERFILE and CLIENT_CONTEXT/CLIENT_DOCKERFILE
-# to point to your implementation's build context.
+# This compose file uses pre-built images for testing implementations.
+# Build images first with the implementation's build system, then run tests.
 #
-# Default: Uses the stub implementation (docker/Dockerfile.stub) for testing
-# the test infrastructure itself.
+# For Rust implementation:
+#   cd ../nomad-rs && just docker-server docker-client
+#   Then: docker compose up -d
+#
+# Default images: nomad-echo-server (x86), nomad-client-arm (ARM64/QEMU)
 #
 # Usage:
-#   # Run with stub implementation
+#   # Start containers
 #   docker compose up -d
 #
-#   # Run with external implementation
-#   SERVER_CONTEXT=/path/to/impl SERVER_DOCKERFILE=Dockerfile docker compose up -d
+#   # Run tests
+#   uv run pytest ../tests/
 #
-#   # Run with network chaos
+#   # Stop containers
+#   docker compose down
+#
+#   # With packet capture
+#   docker compose --profile capture up -d
+#
+#   # With network chaos
 #   docker compose --profile chaos up -d
 
 services:
@@ -23,18 +31,16 @@ services:
   # ===========================================================================
 
   nomad-server:
-    build:
-      context: ${SERVER_CONTEXT:-.}
-      dockerfile: ${SERVER_DOCKERFILE:-Dockerfile.stub}
-      target: ${SERVER_TARGET:-server}
+    image: ${SERVER_IMAGE:-nomad-echo-server}
     container_name: nomad-server
     environment:
       - NOMAD_MODE=server
       - NOMAD_SERVER_PRIVATE_KEY=${SERVER_PRIVATE_KEY:-}
-      - NOMAD_SERVER_PUBLIC_KEY=${SERVER_PUBLIC_KEY:-}
+      - NOMAD_SERVER_PUBLIC_KEY=${SERVER_PUBLIC_KEY:-gqNRjwG8OsClvG2vWuafYeERaM95Pk0rTLmFAjh6JDo=}
       - NOMAD_STATE_TYPE=${STATE_TYPE:-nomad.echo.v1}
       - NOMAD_LOG_LEVEL=${LOG_LEVEL:-debug}
       - NOMAD_BIND_ADDR=0.0.0.0:19999
+      - NOMAD_TEST_MODE=${TEST_MODE:-true}
     networks:
       nomad-net:
         ipv4_address: 172.28.0.10
@@ -42,24 +48,22 @@ services:
       - "19999:19999/udp"
       - "8080:8080"
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8080/health"]
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8080'"]
       interval: 1s
-      timeout: 1s
+      timeout: 2s
       retries: 30
       start_period: 5s
     restart: unless-stopped
 
   nomad-client:
-    build:
-      context: ${CLIENT_CONTEXT:-.}
-      dockerfile: ${CLIENT_DOCKERFILE:-Dockerfile.stub}
-      target: ${CLIENT_TARGET:-client}
+    image: ${CLIENT_IMAGE:-nomad-client-arm}
+    platform: ${CLIENT_PLATFORM:-linux/arm64}
     container_name: nomad-client
     environment:
       - NOMAD_MODE=client
       - NOMAD_SERVER_HOST=172.28.0.10
       - NOMAD_SERVER_PORT=19999
-      - NOMAD_SERVER_PUBLIC_KEY=${SERVER_PUBLIC_KEY:-}
+      - NOMAD_SERVER_PUBLIC_KEY=${SERVER_PUBLIC_KEY:-gqNRjwG8OsClvG2vWuafYeERaM95Pk0rTLmFAjh6JDo=}
       - NOMAD_LOG_LEVEL=${LOG_LEVEL:-debug}
     networks:
       nomad-net:
@@ -70,6 +74,44 @@ services:
     stdin_open: true
     tty: true
     restart: unless-stopped
+
+  # ===========================================================================
+  # Test Runner (for scapy-based tests)
+  # ===========================================================================
+
+  # Test runner container for network-level tests (transport attacks, etc.)
+  # Uses scapy for raw packet injection/capture - needs NET_RAW capability
+  test-runner:
+    image: python:3.13-slim
+    container_name: nomad-test-runner
+    working_dir: /tests
+    environment:
+      - NOMAD_SERVER_HOST=172.28.0.10
+      - NOMAD_PORT=19999
+      - NOMAD_TEST_INTERFACE=eth0
+      - NOMAD_EXTERNAL_CONTAINERS=1
+      - SERVER_PUBLIC_KEY=${SERVER_PUBLIC_KEY:-gqNRjwG8OsClvG2vWuafYeERaM95Pk0rTLmFAjh6JDo=}
+    networks:
+      nomad-net:
+        ipv4_address: 172.28.0.100
+    volumes:
+      - ../tests:/tests:ro
+      - test-venv:/tests/.venv
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    depends_on:
+      nomad-server:
+        condition: service_healthy
+    command: >
+      bash -c "
+        apt-get update && apt-get install -y curl libpcap-dev &&
+        pip install uv &&
+        uv sync &&
+        tail -f /dev/null
+      "
+    profiles:
+      - test-runner
 
   # ===========================================================================
   # Observability Sidecars
@@ -98,7 +140,6 @@ services:
   # Network Chaos (for resilience testing)
   # ===========================================================================
 
-  # Introduce network delays, packet loss, etc.
   chaos-delay:
     image: gaiaadm/pumba:latest
     container_name: nomad-chaos-delay
@@ -134,6 +175,119 @@ services:
     profiles:
       - chaos-loss
 
+  # 30% packet loss profile
+  chaos-loss-30:
+    image: gaiaadm/pumba:latest
+    container_name: nomad-chaos-loss-30
+    command: >
+      netem
+      --duration 300s
+      --tc-image gaiadocker/iproute2
+      loss
+      --percent 30
+      nomad-client
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - nomad-client
+    profiles:
+      - chaos-loss-30
+
+  # 50% packet loss profile (critical test threshold)
+  chaos-loss-50:
+    image: gaiaadm/pumba:latest
+    container_name: nomad-chaos-loss-50
+    command: >
+      netem
+      --duration 300s
+      --tc-image gaiadocker/iproute2
+      loss
+      --percent 50
+      nomad-client
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - nomad-client
+    profiles:
+      - chaos-loss-50
+
+  # Packet reordering profile
+  chaos-reorder:
+    image: gaiaadm/pumba:latest
+    container_name: nomad-chaos-reorder
+    command: >
+      netem
+      --duration 300s
+      --tc-image gaiadocker/iproute2
+      delay
+      --time 10
+      --reorder-percent 25
+      --reorder-gap 5
+      nomad-client
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - nomad-client
+    profiles:
+      - chaos-reorder
+
+  # Packet duplication profile
+  chaos-duplicate:
+    image: gaiaadm/pumba:latest
+    container_name: nomad-chaos-duplicate
+    command: >
+      netem
+      --duration 300s
+      --tc-image gaiadocker/iproute2
+      duplicate
+      --percent 20
+      nomad-client
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - nomad-client
+    profiles:
+      - chaos-duplicate
+
+  # High latency profile (500ms)
+  chaos-latency-500:
+    image: gaiaadm/pumba:latest
+    container_name: nomad-chaos-latency-500
+    command: >
+      netem
+      --duration 300s
+      --tc-image gaiadocker/iproute2
+      delay
+      --time 500
+      --jitter 50
+      nomad-client
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - nomad-client
+    profiles:
+      - chaos-latency-500
+
+  # High jitter profile (±300ms)
+  chaos-jitter-extreme:
+    image: gaiaadm/pumba:latest
+    container_name: nomad-chaos-jitter-extreme
+    command: >
+      netem
+      --duration 300s
+      --tc-image gaiadocker/iproute2
+      delay
+      --time 100
+      --jitter 300
+      --distribution normal
+      nomad-client
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - nomad-client
+    profiles:
+      - chaos-jitter-extreme
+
 # ===========================================================================
 # Networks
 # ===========================================================================
@@ -151,4 +305,6 @@ networks:
 
 volumes:
   capture:
+    driver: local
+  test-venv:
     driver: local

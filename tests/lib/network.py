@@ -12,6 +12,7 @@ Uses scapy for low-level packet manipulation.
 
 from __future__ import annotations
 
+import os
 import struct
 import time
 from dataclasses import dataclass, field
@@ -19,16 +20,25 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import structlog
-from scapy.all import UDP, IP, Ether, Raw, rdpcap, sendp, sniff, sr1
-from scapy.layers.inet import ICMP
+from scapy.all import IP, UDP, Ether, Raw, rdpcap, sendp, sniff, sr1  # type: ignore[attr-defined]
 
 if TYPE_CHECKING:
     from scapy.packet import Packet
+    from scapy.plist import PacketList
 
 log = structlog.get_logger()
 
 # Default Nomad port
 NOMAD_PORT = 19999
+
+
+def get_default_interface() -> str:
+    """Get the default network interface from environment or fallback.
+
+    Returns:
+        Network interface name (e.g., 'eth0', 'br-xxx', 'docker0').
+    """
+    return os.environ.get("NOMAD_TEST_INTERFACE", "eth0")
 
 
 @dataclass
@@ -70,9 +80,11 @@ class PacketSender:
     target_port: int = NOMAD_PORT
     source_ip: str | None = None
     source_port: int = 0
-    interface: str = "eth0"
+    interface: str = field(default_factory=get_default_interface)
 
-    def send_udp(self, payload: bytes, wait_response: bool = False, timeout: float = 1.0) -> Packet | None:
+    def send_udp(
+        self, payload: bytes, wait_response: bool = False, timeout: float = 1.0
+    ) -> Packet | None:
         """Send a UDP packet.
 
         Args:
@@ -148,7 +160,7 @@ class PacketSender:
 class PacketCapture:
     """Captures packets from the network."""
 
-    interface: str = "eth0"
+    interface: str = field(default_factory=get_default_interface)
     filter_expr: str = f"udp port {NOMAD_PORT}"
     captured: list[CapturedFrame] = field(default_factory=list)
     _stop_sniff: bool = False
@@ -164,7 +176,7 @@ class PacketCapture:
 
         self._stop_sniff = False
 
-        def do_capture():
+        def do_capture() -> None:
             packets = sniff(
                 iface=self.interface,
                 filter=self.filter_expr,
@@ -202,7 +214,7 @@ class PacketCapture:
         self._process_packets(packets)
         return self.captured
 
-    def _process_packets(self, packets) -> None:
+    def _process_packets(self, packets: PacketList) -> None:
         """Process captured packets into CapturedFrames."""
         for pkt in packets:
             if UDP in pkt and Raw in pkt:
@@ -309,6 +321,7 @@ def generate_random_frame(size: int) -> bytes:
         Random bytes.
     """
     import os
+
     return os.urandom(size)
 
 
@@ -334,7 +347,7 @@ def generate_session_id_variants(base_frame: bytes) -> list[bytes]:
 
     # All ones
     ones = bytearray(frame)
-    ones[2:8] = b"\xFF" * 6
+    ones[2:8] = b"\xff" * 6
     variants.append(bytes(ones))
 
     # Incrementing
@@ -378,7 +391,7 @@ def validate_data_frame_header(raw_bytes: bytes) -> dict[str, bool]:
     return results
 
 
-def extract_header_fields(raw_bytes: bytes) -> dict:
+def extract_header_fields(raw_bytes: bytes) -> dict[str, int | bytes]:
     """Extract header fields from a data frame.
 
     Args:

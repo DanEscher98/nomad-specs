@@ -171,6 +171,39 @@ The sync algorithm guarantees **eventual consistency**:
 3. **Monotonic versions**: Out-of-order handled via version comparison
 4. **Best-effort delivery**: State converges when any message gets through
 
+### Sync State Machine
+
+Each endpoint maintains a sync state machine:
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle: Initialize
+
+    Idle --> Sending: Local state changed
+    Idle --> Receiving: Message received
+    Idle --> Idle: Keepalive timer
+
+    Sending --> WaitingAck: Send diff
+    WaitingAck --> Idle: Ack received (acked >= sent)
+    WaitingAck --> Sending: Retransmit timer expired
+    WaitingAck --> Receiving: Message received
+
+    Receiving --> Idle: Diff applied (newer)
+    Receiving --> Idle: Diff skipped (older/equal)
+
+    note right of WaitingAck
+        Retransmit until acked_state_num
+        catches up to current_num
+    end note
+
+    note right of Receiving
+        Apply if sender_state_num > peer_state_num
+        Always update ack tracking
+    end note
+```
+
+### Message Flow Example
+
 ```mermaid
 sequenceDiagram
     participant S as Server (State: A)
@@ -284,12 +317,52 @@ State types MUST document whether intermediate states can be safely skipped.
 
 ---
 
+## Formal Verification
+
+The sync layer has been formally verified using TLA+.
+
+### TLA+ Specification
+
+| Spec | Properties Verified |
+|------|---------------------|
+| `formal/tlaplus/SyncLayer.tla` | Eventual consistency, idempotent diffs, monotonic versions |
+
+### Verified Properties
+
+| Property | Type | Result | Description |
+|----------|------|--------|-------------|
+| MonotonicStateNums | Safety | ✅ Proven | State versions only increase |
+| AckedNeverExceedsSent | Safety | ✅ Proven | Acks bounded by sent versions |
+| PeerNeverAhead | Safety | ✅ Proven | Receiver can't be ahead of sender |
+| ValidMessages | Safety | ✅ Proven | Messages have valid version numbers |
+| EventualConsistency | Liveness | ✅ Proven | States converge when messages get through |
+
+### Convergence Guarantee
+
+The TLA+ model proves that under fair scheduling (eventual message delivery), the sync layer achieves eventual consistency:
+
+```
+EventualConsistency ==
+    \A n \in 1..NumNodes :
+        [](state_num[n] = state_num[n]) ~>
+            (peer_state_num[Peer(n)] = state_num[n])
+```
+
+This formalizes the core promise: **if at least one message gets through, states converge**.
+
+See `formal/README.md` for instructions on running the verification tools.
+
+---
+
 ## Test Mapping
 
 | Spec Section | Test File |
 |--------------|-----------|
-| Sync message format | `tests/unit/test_diff_encoding.py` |
+| Sync message format | `tests/unit/test_diff_encode.py` |
+| Diff encoding | `tests/unit/test_diff_encode.py` |
+| Diff decoding | `tests/unit/test_diff_decode.py` |
+| Idempotent application | `tests/unit/test_diff_apply.py` |
+| Basic sync flow | `tests/protocol/test_sync_flow.py` |
 | Convergence | `tests/protocol/test_sync_convergence.py` |
-| Idempotent diffs | `tests/protocol/test_sync_convergence.py` |
-| Ack tracking | `tests/protocol/test_sync_convergence.py` |
-| Retransmission | `tests/protocol/test_sync_convergence.py` |
+| Edge cases | `tests/protocol/test_sync_edge_cases.py` |
+| Property-based tests | `tests/protocol/test_sync_properties.py` |

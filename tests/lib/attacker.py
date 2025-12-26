@@ -25,26 +25,37 @@ import random
 import struct
 import time
 from dataclasses import dataclass
+from typing import Any
 
 import structlog
 
 # scapy imports - lazy loaded for faster test startup
 _scapy_loaded = False
-_sniff = None
-_sendp = None
-_send = None
-_IP = None
-_UDP = None
-_Raw = None
-_Ether = None
-_conf = None
+_sniff: Any = None
+_sendp: Any = None
+_send: Any = None
+_IP: Any = None
+_UDP: Any = None
+_Raw: Any = None
+_Ether: Any = None
+_conf: Any = None
 
 
-def _ensure_scapy():
+def _ensure_scapy() -> None:
     """Lazy load scapy modules."""
     global _scapy_loaded, _sniff, _sendp, _send, _IP, _UDP, _Raw, _Ether, _conf
     if not _scapy_loaded:
-        from scapy.all import IP, UDP, Ether, Raw, conf, send, sendp, sniff
+        from scapy.all import (  # type: ignore[attr-defined]
+            IP,
+            UDP,
+            Ether,
+            Raw,
+            conf,
+            send,
+            sendp,
+            sniff,
+        )
+
         _sniff = sniff
         _sendp = sendp
         _send = send
@@ -56,11 +67,19 @@ def _ensure_scapy():
         _scapy_loaded = True
 
 
-
 log = structlog.get_logger()
 
 # Default NOMAD port
 NOMAD_PORT = 19999
+
+
+def get_default_interface() -> str:
+    """Get the default network interface from environment or fallback.
+
+    Returns:
+        Network interface name (e.g., 'eth0', 'br-xxx', 'docker0').
+    """
+    return os.environ.get("NOMAD_TEST_INTERFACE", "eth0")
 
 
 @dataclass
@@ -115,7 +134,7 @@ class MITMAttacker:
     with NOMAD protocol frames for security testing purposes.
 
     Example usage:
-        attacker = MITMAttacker(interface="eth0")
+        attacker = MITMAttacker()  # Uses NOMAD_TEST_INTERFACE env var
 
         # Capture traffic
         frames = attacker.capture_traffic(count=10, timeout=5.0)
@@ -132,18 +151,18 @@ class MITMAttacker:
 
     def __init__(
         self,
-        interface: str = "eth0",
+        interface: str | None = None,
         target_ip: str | None = None,
         target_port: int = NOMAD_PORT,
     ) -> None:
         """Initialize the MITM attacker.
 
         Args:
-            interface: Network interface to capture on.
+            interface: Network interface to capture on (default: from NOMAD_TEST_INTERFACE).
             target_ip: Target IP address for injection.
             target_port: Target port (default: 19999).
         """
-        self.interface = interface
+        self.interface = interface or get_default_interface()
         self.target_ip = target_ip
         self.target_port = target_port
         self.stats = AttackStats()
@@ -187,7 +206,7 @@ class MITMAttacker:
 
         captured: list[CapturedFrame] = []
 
-        def packet_callback(pkt):
+        def packet_callback(pkt: Any) -> None:
             if _UDP in pkt and _Raw in pkt:
                 frame = CapturedFrame(
                     data=bytes(pkt[_Raw].load),
@@ -221,8 +240,7 @@ class MITMAttacker:
         except PermissionError as err:
             log.error("capture_permission_denied", interface=self.interface)
             raise PermissionError(
-                f"Cannot capture on {self.interface}. "
-                "Need NET_RAW/NET_ADMIN capabilities."
+                f"Cannot capture on {self.interface}. Need NET_RAW/NET_ADMIN capabilities."
             ) from err
 
         self._captured_frames.extend(captured)
@@ -317,11 +335,7 @@ class MITMAttacker:
                 / _Raw(load=frame)
             )
         else:
-            pkt = (
-                _IP(dst=dst_ip)
-                / _UDP(sport=src_port, dport=dst_port)
-                / _Raw(load=frame)
-            )
+            pkt = _IP(dst=dst_ip) / _UDP(sport=src_port, dport=dst_port) / _Raw(load=frame)
 
         _send(pkt, verbose=False)
         self.stats.frames_injected += 1
@@ -359,6 +373,7 @@ class MITMAttacker:
         if byte is not None:
             tampered[offset] = byte & 0xFF
         else:
+            assert xor_mask is not None  # Guaranteed by validation above
             tampered[offset] ^= xor_mask & 0xFF
 
         self.stats.frames_tampered += 1
@@ -507,9 +522,7 @@ class TimingAnalyzer:
         """
         if len(self.samples) < 2:
             return []
-        return [
-            self.samples[i] - self.samples[i - 1] for i in range(1, len(self.samples))
-        ]
+        return [self.samples[i] - self.samples[i - 1] for i in range(1, len(self.samples))]
 
     def correlate_with_pattern(self, pattern: list[float]) -> float:
         """Calculate Pearson correlation with a known timing pattern.
@@ -538,17 +551,17 @@ class TimingAnalyzer:
         mean_p = sum(pattern) / n
 
         # Calculate Pearson correlation
-        num = sum(
-            (a - mean_a) * (p - mean_p)
-            for a, p in zip(arrivals, pattern, strict=True)
+        num: float = sum(
+            (a - mean_a) * (p - mean_p) for a, p in zip(arrivals, pattern, strict=True)
         )
-        denom_a = sum((a - mean_a) ** 2 for a in arrivals) ** 0.5
-        denom_p = sum((p - mean_p) ** 2 for p in pattern) ** 0.5
+        denom_a: float = sum((a - mean_a) ** 2 for a in arrivals) ** 0.5
+        denom_p: float = sum((p - mean_p) ** 2 for p in pattern) ** 0.5
 
         if denom_a * denom_p == 0:
             return 0.0
 
-        return num / (denom_a * denom_p)
+        result: float = num / (denom_a * denom_p)
+        return result
 
     def clear(self) -> None:
         """Clear all recorded samples."""
@@ -653,14 +666,14 @@ class SessionProbe:
 
 # Convenience function for pytest fixtures
 def create_attacker(
-    interface: str = "eth0",
+    interface: str | None = None,
     target_ip: str | None = None,
     target_port: int = NOMAD_PORT,
 ) -> MITMAttacker:
     """Create a configured MITM attacker instance.
 
     Args:
-        interface: Network interface.
+        interface: Network interface (default: from NOMAD_TEST_INTERFACE).
         target_ip: Target IP address.
         target_port: Target port.
 

@@ -4,6 +4,27 @@
 
 A secure, UDP-based state synchronization protocol designed for real-time applications over unreliable networks. Inspired by [Mosh](https://mosh.org/), but a new protocol with different design choices.
 
+## Quick Start
+
+```bash
+# Install test dependencies
+just install
+
+# Run spec tests (no Docker required)
+just test-spec
+
+# Run server tests (requires Docker)
+just docker-up
+just test-server
+
+# Run transport attack tests (requires test-runner container)
+just docker-up-runner
+just docker-test-runner adversarial/test_server_transport_attacks.py -v
+
+# Stop containers
+just docker-down
+```
+
 ## Features
 
 - **Secure**: End-to-end authenticated encryption using Noise_IK + XChaCha20-Poly1305
@@ -11,6 +32,110 @@ A secure, UDP-based state synchronization protocol designed for real-time applic
 - **Fast**: Sub-100ms reconnection, optional client-side prediction
 - **Simple**: Fixed cryptographic suite, no negotiation
 - **Generic**: State-agnostic synchronization framework
+
+## Test Suite
+
+The conformance test suite validates implementations against the protocol specification.
+
+### Test Categories
+
+| Prefix | Description | Requirements | Command |
+|--------|-------------|--------------|---------|
+| `test_spec_*` | Python reference codec tests | None | `just test-spec` |
+| `test_server_*` | Python client → Docker server | Server container | `just test-server` |
+| `test_e2e_*` | Docker client ↔ Docker server | Both containers | `just test-e2e` |
+
+### Test Directories
+
+| Directory | Description |
+|-----------|-------------|
+| `tests/unit/` | Codec internals (encoding, crypto) |
+| `tests/protocol/` | Protocol behavior (handshake, sync, rekey) |
+| `tests/wire/` | Byte-level format compliance |
+| `tests/adversarial/` | Security tests (replay, injection, timing) |
+| `tests/resilience/` | Network chaos tests (loss, latency, reorder) |
+| `tests/interop/` | Cross-implementation tests |
+
+### Running Tests
+
+```bash
+# Spec tests - no Docker needed
+just test-spec                    # All spec tests
+just test-unit                    # Unit directory only
+
+# Server tests - requires server container
+just docker-up                    # Start server
+just test-server                  # Run server tests
+
+# Transport attack tests - requires test-runner container
+just docker-up-runner             # Start server + test-runner
+just docker-test-runner adversarial/test_server_transport_attacks.py -v
+
+# E2E tests - requires both containers + packet capture
+just docker-up-capture            # Start with tcpdump
+just test-e2e                     # Run E2E tests
+
+# Resilience tests - requires chaos profiles
+just docker-up-chaos              # Start with network chaos
+just test-resilience              # Run resilience tests
+
+# Quick workflows
+just quick-server                 # up → test → down
+just quick-e2e                    # up-capture → test → down
+```
+
+### Special Test Markers
+
+Some tests require special capabilities and are skipped by default:
+
+| Marker | Description | How to Run |
+|--------|-------------|------------|
+| `scapy_attack` | Tests requiring raw sockets (NET_RAW) | `just docker-test-runner -m scapy_attack adversarial/` |
+| `container` | Tests requiring Docker access | Automatic with `just test-server` |
+| `slow` | Long-running tests | Included by default |
+
+## Docker Infrastructure
+
+### Container Images
+
+Build images from the Rust implementation:
+
+```bash
+cd ../nomad-rs
+just docker-server    # Builds nomad-echo-server
+just docker-client    # Builds nomad-client-arm (ARM64/QEMU)
+```
+
+### Services
+
+| Service | Image | Purpose |
+|---------|-------|---------|
+| `nomad-server` | `nomad-echo-server` | Echo server for testing |
+| `nomad-client` | `nomad-client-arm` | ARM64 client via QEMU |
+| `test-runner` | `python:3.13-slim` | Scapy-based attack tests |
+| `tcpdump` | `nicolaka/netshoot` | Packet capture |
+| `chaos-*` | `gaiaadm/pumba` | Network chaos injection |
+
+### Environment Variables
+
+Configure in `docker/.env`:
+
+```bash
+SERVER_IMAGE=nomad-echo-server
+CLIENT_IMAGE=nomad-client-arm
+SERVER_PUBLIC_KEY=gqNRjwG8OsClvG2vWuafYeERaM95Pk0rTLmFAjh6JDo=
+LOG_LEVEL=debug
+```
+
+### Network
+
+All containers run on `nomad-net` (172.28.0.0/16):
+
+| Container | IP Address |
+|-----------|------------|
+| nomad-server | 172.28.0.10 |
+| nomad-client | 172.28.0.20 |
+| test-runner | 172.28.0.100 |
 
 ## Specifications
 
