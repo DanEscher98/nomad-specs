@@ -748,25 +748,92 @@ def deterministic_bytes(seed: str, length: int) -> bytes:
 # =============================================================================
 
 
-def hkdf_expand(prk: bytes, info: bytes, length: int) -> bytes:
-    """HKDF-Expand using SHA-256.
+def hkdf_extract_blake2s(salt: bytes, ikm: bytes) -> bytes:
+    """HKDF-Extract using BLAKE2s keyed mode.
 
-    Per RFC 5869, this expands a pseudorandom key (PRK) into output keying material.
+    BLAKE2s keyed mode serves as HMAC replacement per Noise Protocol Framework.
+    PRK = BLAKE2s(key=salt, data=IKM)
+
+    If salt is empty, use zero-filled 32-byte key.
 
     Args:
-        prk: Pseudorandom key (e.g., DH shared secret)
+        salt: Optional salt value (can be empty)
+        ikm: Input keying material
+
+    Returns:
+        32-byte pseudorandom key (PRK)
+    """
+    import hashlib
+
+    if not salt:
+        salt = b"\x00" * 32
+    # BLAKE2s max key is 32 bytes, truncate if needed
+    if len(salt) > 32:
+        salt = hashlib.blake2s(salt, digest_size=32).digest()
+
+    return hashlib.blake2s(ikm, key=salt, digest_size=32).digest()
+
+
+def hkdf_expand_blake2s(prk: bytes, info: bytes, length: int) -> bytes:
+    """HKDF-Expand using BLAKE2s keyed mode.
+
+    This implements HKDF-Expand (RFC 5869) with BLAKE2s:
+        T(0) = empty
+        T(i) = BLAKE2s(key=PRK, data=T(i-1) || info || i)
+        OKM = T(1) || T(2) || ... || T(N)
+
+    Args:
+        prk: Pseudorandom key (must be exactly 32 bytes)
         info: Context and application specific information
         length: Length of output keying material in bytes
 
     Returns:
         Derived key material of specified length
     """
-    hkdf = HKDFExpand(
-        algorithm=hashes.SHA256(),
-        length=length,
-        info=info,
-    )
-    return hkdf.derive(prk)
+    import hashlib
+    import math
+
+    if len(prk) != 32:
+        raise ValueError(f"PRK must be 32 bytes, got {len(prk)}")
+
+    hash_len = 32  # BLAKE2s-256 output size
+    n = math.ceil(length / hash_len)
+
+    if n > 255:
+        raise ValueError(f"HKDF-Expand: requested length {length} too large")
+
+    okm = b""
+    t = b""
+    for i in range(1, n + 1):
+        # T(i) = BLAKE2s(key=PRK, data=T(i-1) || info || i)
+        h = hashlib.blake2s(t + info + bytes([i]), key=prk, digest_size=32)
+        t = h.digest()
+        okm += t
+
+    return okm[:length]
+
+
+def hkdf_expand(prk: bytes, info: bytes, length: int) -> bytes:
+    """HKDF-Expand using BLAKE2s.
+
+    Per Noise Protocol Framework and NOMAD spec (0-PROTOCOL.md), we use BLAKE2s
+    for all key derivation. BLAKE2s keyed mode serves as an HMAC replacement.
+
+    If PRK is longer than 32 bytes, it is first compressed using HKDF-Extract.
+
+    Args:
+        prk: Pseudorandom key (e.g., handshake hash or DH secret)
+        info: Context and application specific information
+        length: Length of output keying material in bytes
+
+    Returns:
+        Derived key material of specified length
+    """
+    # BLAKE2s key max is 32 bytes; compress if needed
+    if len(prk) > 32:
+        prk = hkdf_extract_blake2s(b"", prk)
+
+    return hkdf_expand_blake2s(prk, info, length)
 
 
 def derive_session_keys(handshake_hash: bytes) -> tuple[bytes, bytes]:

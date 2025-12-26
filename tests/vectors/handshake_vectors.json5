@@ -8,7 +8,7 @@
 {
   "_metadata": {
     "description": "Handshake structure test vectors for NOMAD v1.0",
-    "generated": "2025-12-26T08:56:36.331010Z",
+    "generated": "2025-12-26T11:05:20.429489Z",
     "generator": "specs/generate_vectors.py",
     "protocol_version": "1.0.0"
   },
@@ -139,14 +139,14 @@
     "rekey_auth_key": {
       "input_static_dh": "57fbeea357c6ca4af3654988d78e020ccc6f4bc56db385bff4a46084b1187266",
       "info": "nomad v1 rekey auth",
-      "output": "48c391a58d3e6fe3e5c463cd874b4565b752da33d63b9d93f9a469549ebbbe09",
+      "output": "e98774fbb11f0011d18d8823e3341e5edcd6c22943f7fec7d436eb9a42037e5b",
       "output_length": 32
     },
     "session_keys": {
       "handshake_hash": "3966393065363433373163656331653665663135303138616562633161656264",
       "info": "nomad v1 session keys",
-      "initiator_key": "972b06124d4f015a5c8a8ad149bf313a7764fe845584650937a1091c87809183",
-      "responder_key": "24ad816e3b591f1f7db88e221d1c2ab0cae007d2ec6db204993db1a31e4d908d"
+      "initiator_key": "f044884c7e05c663231787d9dad01b4a3f286cb3c44fac016dc0c8c611381191",
+      "responder_key": "a144c93daefdf51f898b6e6ba5555226f15572e623d9be9516449899489799fb"
     }
   }
 }

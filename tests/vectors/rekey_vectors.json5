@@ -8,7 +8,7 @@
 {
   "_metadata": {
     "description": "Rekey test vectors for NOMAD v1.0 (PCS fix)",
-    "generated": "2025-12-26T08:56:36.334058Z",
+    "generated": "2025-12-26T11:05:20.433005Z",
     "generator": "specs/generate_vectors.py",
     "protocol_version": "1.0.0"
   },
@@ -34,14 +34,14 @@
         "public_key": "968a592246f438dd8a2baf09f4abf9664a96025112a400a6cc7c5eb342c7bc34"
       },
       "ephemeral_dh": "813c560b94aec760c9a8d12a09bb4c2be3bfc35eb6983ceb264a13046d3aaa75",
-      "rekey_auth_key": "48c391a58d3e6fe3e5c463cd874b4565b752da33d63b9d93f9a469549ebbbe09",
+      "rekey_auth_key": "e98774fbb11f0011d18d8823e3341e5edcd6c22943f7fec7d436eb9a42037e5b",
       "info": "6e6f6d61642076312072656b657901000000",
       "info_decoded": {
         "prefix": "nomad v1 rekey",
         "epoch_le32": 1
       },
-      "new_initiator_key": "ba7ba9959a0338866994033dc46c15df92e6a08b4d5041d5e52070001187c312",
-      "new_responder_key": "91f2e4123a04abe6343003d6ff5793af7aae75ede7fdc6737aaf24964d9285f8"
+      "new_initiator_key": "b8f7b06501c1186d95869c926a3c49e0d6638a03e3d4f108ab2d93d702b23627",
+      "new_responder_key": "b86314cc912a4df80741859be2dea5d7ba0d817b605ef66217f762e5fa8250f3"
     },
     {
       "name": "epoch_1_to_2_pcs_case",
@@ -59,14 +59,14 @@
         "public_key": "3426424a80a34977901791d07bd580d0ed221cdf56c61a292e8528ac7479ea44"
       },
       "ephemeral_dh": "7efd5673c47236ad6f9bf85e945074615c1943c528a87cc0dc9084ad278d266e",
-      "rekey_auth_key": "48c391a58d3e6fe3e5c463cd874b4565b752da33d63b9d93f9a469549ebbbe09",
+      "rekey_auth_key": "e98774fbb11f0011d18d8823e3341e5edcd6c22943f7fec7d436eb9a42037e5b",
       "info": "6e6f6d61642076312072656b657902000000",
       "info_decoded": {
         "prefix": "nomad v1 rekey",
         "epoch_le32": 2
       },
-      "new_initiator_key": "206c3c4f0838aaf5b039bad2ecd1a387d6f784afbf1d283dc0a438ad45f4db3e",
-      "new_responder_key": "786554075c38e73a735b26cbfd650c9fd0f8909227e498487007fc2adfec661d"
+      "new_initiator_key": "e39ef4ea8f4f0715fd5d0c064972a4037ad93b2859a4e9f8799ad1fd328228ab",
+      "new_responder_key": "06d90e4465d4006a56e13e207058ab78f18939bb0d09e469a6417e95b45dc8a6"
     },
     {
       "name": "epoch_high_number",
@@ -83,14 +83,14 @@
         "public_key": "d265cbd6d7c4aae7f69cbc60996f0eff87271e9fa32ebdad8caecd858685d87f"
       },
       "ephemeral_dh": "0038038a95c66833de6cd4a4743226d03d952d35d1885876f63b95deea271e3f",
-      "rekey_auth_key": "48c391a58d3e6fe3e5c463cd874b4565b752da33d63b9d93f9a469549ebbbe09",
+      "rekey_auth_key": "e98774fbb11f0011d18d8823e3341e5edcd6c22943f7fec7d436eb9a42037e5b",
       "info": "6e6f6d61642076312072656b657964000000",
       "info_decoded": {
         "prefix": "nomad v1 rekey",
         "epoch_le32": 100
       },
-      "new_initiator_key": "dda7dd785c4c5f75096c0ea88023b1558e26bb84f4c4eb72ba7977c6947abc1a",
-      "new_responder_key": "110c7c42998204153892f1ac84634c355ed1b279174befd2f27936073567e54f"
+      "new_initiator_key": "e0dfdeda09c64706d9723a5e185564f46b982790f65dcbb50ade43419e4b6a5c",
+      "new_responder_key": "13939605c52b4cc19da9952cf32ae7419b0eabfe54c32099e9aedcffb0a545e0"
     }
   ],
   "intermediate_values": {
@@ -105,7 +105,7 @@
     "rekey_auth_key": {
       "input": "57fbeea357c6ca4af3654988d78e020ccc6f4bc56db385bff4a46084b1187266",
       "info": "nomad v1 rekey auth",
-      "output": "48c391a58d3e6fe3e5c463cd874b4565b752da33d63b9d93f9a469549ebbbe09"
+      "output": "e98774fbb11f0011d18d8823e3341e5edcd6c22943f7fec7d436eb9a42037e5b"
     }
   }
 }

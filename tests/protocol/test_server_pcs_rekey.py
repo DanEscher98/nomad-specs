@@ -184,7 +184,7 @@ class TestServerPCSRekeyAuthKey:
             "57fbeea357c6ca4af3654988d78e020ccc6f4bc56db385bff4a46084b1187266"
         )
         expected_rekey_auth_key = bytes.fromhex(
-            "48c391a58d3e6fe3e5c463cd874b4565b752da33d63b9d93f9a469549ebbbe09"
+            "e98774fbb11f0011d18d8823e3341e5edcd6c22943f7fec7d436eb9a42037e5b"
         )
 
         # Derive rekey_auth_key from static DH
@@ -375,18 +375,18 @@ class TestServerPCSRekeyVectors:
 
     def test_epoch_0_to_1_vector(self) -> None:
         """Verify epoch 0→1 transition matches test vector."""
-        # From rekey_vectors.json5
+        # From rekey_vectors.json5 (BLAKE2s HKDF)
         ephemeral_dh = bytes.fromhex(
             "813c560b94aec760c9a8d12a09bb4c2be3bfc35eb6983ceb264a13046d3aaa75"
         )
         rekey_auth_key = bytes.fromhex(
-            "48c391a58d3e6fe3e5c463cd874b4565b752da33d63b9d93f9a469549ebbbe09"
+            "e98774fbb11f0011d18d8823e3341e5edcd6c22943f7fec7d436eb9a42037e5b"
         )
         expected_init_key = bytes.fromhex(
-            "ba7ba9959a0338866994033dc46c15df92e6a08b4d5041d5e52070001187c312"
+            "b8f7b06501c1186d95869c926a3c49e0d6638a03e3d4f108ab2d93d702b23627"
         )
         expected_resp_key = bytes.fromhex(
-            "91f2e4123a04abe6343003d6ff5793af7aae75ede7fdc6737aaf24964d9285f8"
+            "b86314cc912a4df80741859be2dea5d7ba0d817b605ef66217f762e5fa8250f3"
         )
 
         init_key, resp_key = derive_rekey_keys(ephemeral_dh, rekey_auth_key, epoch=1)
@@ -412,13 +412,13 @@ class TestServerPCSRekeyVectors:
             "7efd5673c47236ad6f9bf85e945074615c1943c528a87cc0dc9084ad278d266e"
         )
         rekey_auth_key = bytes.fromhex(
-            "48c391a58d3e6fe3e5c463cd874b4565b752da33d63b9d93f9a469549ebbbe09"
+            "e98774fbb11f0011d18d8823e3341e5edcd6c22943f7fec7d436eb9a42037e5b"
         )
         expected_init_key = bytes.fromhex(
-            "206c3c4f0838aaf5b039bad2ecd1a387d6f784afbf1d283dc0a438ad45f4db3e"
+            "e39ef4ea8f4f0715fd5d0c064972a4037ad93b2859a4e9f8799ad1fd328228ab"
         )
         expected_resp_key = bytes.fromhex(
-            "786554075c38e73a735b26cbfd650c9fd0f8909227e498487007fc2adfec661d"
+            "06d90e4465d4006a56e13e207058ab78f18939bb0d09e469a6417e95b45dc8a6"
         )
 
         init_key, resp_key = derive_rekey_keys(ephemeral_dh, rekey_auth_key, epoch=2)
@@ -440,13 +440,13 @@ class TestServerPCSRekeyVectors:
             "0038038a95c66833de6cd4a4743226d03d952d35d1885876f63b95deea271e3f"
         )
         rekey_auth_key = bytes.fromhex(
-            "48c391a58d3e6fe3e5c463cd874b4565b752da33d63b9d93f9a469549ebbbe09"
+            "e98774fbb11f0011d18d8823e3341e5edcd6c22943f7fec7d436eb9a42037e5b"
         )
         expected_init_key = bytes.fromhex(
-            "dda7dd785c4c5f75096c0ea88023b1558e26bb84f4c4eb72ba7977c6947abc1a"
+            "e0dfdeda09c64706d9723a5e185564f46b982790f65dcbb50ade43419e4b6a5c"
         )
         expected_resp_key = bytes.fromhex(
-            "110c7c42998204153892f1ac84634c355ed1b279174befd2f27936073567e54f"
+            "13939605c52b4cc19da9952cf32ae7419b0eabfe54c32099e9aedcffb0a545e0"
         )
 
         init_key, resp_key = derive_rekey_keys(ephemeral_dh, rekey_auth_key, epoch=100)
