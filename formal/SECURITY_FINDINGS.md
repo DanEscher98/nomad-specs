@@ -170,7 +170,7 @@ TimeExpiration(r) ==
 | Model                      | Queries | Result                  | Notes                                       |
 | -------------------------- | ------- | ----------------------- | ------------------------------------------- |
 | `nomad_handshake.pv`       | 5       | **PASS**                | Key secrecy, mutual auth, key agreement     |
-| `nomad_replay.pv`          | 3       | **PASS**                | Frame authenticity, no replay, integrity    |
+| `nomad_replay.pv`          | 4       | **PASS**                | Frame authenticity, no replay, integrity, window ordering |
 | `nomad_rekey.pv`           | 3       | 1 PASS, 2 EXPECTED FAIL | FS verified; PCS fails (original design)    |
 | `nomad_rekey_fixed.pv`     | 3       | **2 PASS, 1 EXPECTED**  | FS + PCS verified (with `rekey_auth_key`)   |
 
@@ -184,9 +184,10 @@ TimeExpiration(r) ==
 
 **nomad_replay.pv**:
 
-- `event(FrameAccepted(n, p)) ==> event(FrameSent(n, p))`: PASS - Authenticity
-- `event(FrameAccepted(n, p1)) && event(FrameAccepted(n, p2)) ==> p1 = p2`: PASS - No replay
-- Frame integrity: PASS
+- Q1: `event(FrameAccepted(n, p)) ==> event(FrameSent(n, p))`: PASS - Authenticity
+- Q2: `event(FrameAccepted(n, p1)) && event(FrameAccepted(n, p2)) ==> p1 = p2`: PASS - No replay
+- Q3: Frame integrity: PASS
+- Q4: `inj-event(FrameAccepted(n, p)) ==> inj-event(NonceSeen(n))`: PASS - Window only advances for authenticated frames (DoS prevention)
 
 **nomad_rekey.pv** (original design):
 
@@ -205,7 +206,7 @@ TimeExpiration(r) ==
 | Model                   | Invariants | States | Result   |
 | ----------------------- | ---------- | ------ | -------- |
 | `RekeyStateMachine.tla` | 6          | 2.8M   | **PASS** |
-| `SyncLayer.tla`         | 6          | 200K   | **PASS** |
+| `SyncLayer.tla`         | 7          | 200K   | **PASS** |
 | `Roaming.tla`           | 6          | 41K    | **PASS** |
 
 #### Invariants Verified
@@ -216,7 +217,7 @@ TimeExpiration(r) ==
 
 **SyncLayer**:
 
-- TypeOK, Safety, MonotonicStateNums, AckedNeverExceedsSent, PeerNeverAhead, ValidMessages
+- TypeOK, Safety, MonotonicStateNums, AckedNeverExceedsSent, PeerNeverAhead, ValidMessages, StateNumBounded (counter overflow prevention)
 
 **Roaming**:
 

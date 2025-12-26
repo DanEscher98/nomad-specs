@@ -8,11 +8,19 @@
  *   2. Idempotent diffs - applying same diff twice has no effect
  *   3. Monotonic versions - out-of-order handled correctly
  *   4. Ack tracking - proper acknowledgment flow
+ *   5. Counter overflow prevention - state numbers never exceed limit
  *
  * From 3-SYNC.md:
  *   - Sender tracks: current state, current_num, last_sent, last_sent_num, last_acked
  *   - Receiver tracks: peer_state, peer_state_num
  *   - Messages: (sender_state_num, acked_state_num, base_state_num, diff)
+ *
+ * Counter Overflow (3-SYNC.md §Counter Limits and Overflow):
+ *   - State version numbers are 64-bit unsigned integers
+ *   - Implementations MUST NOT allow version numbers to wrap
+ *   - If state_num would exceed 2^64-1, session MUST be terminated
+ *   - In this model, MaxStateNum represents the hard limit (2^64-1 in spec)
+ *   - LocalStateChange guard prevents overflow; reaching limit = quiescence
  *)
 
 EXTENDS Integers, Sequences, FiniteSets
@@ -209,7 +217,13 @@ ValidMessages ==
         /\ msg.acked_num <= state_num[msg.to]
         /\ msg.base_num <= msg.sender_num
 
-Safety == MonotonicStateNums /\ AckedNeverExceedsSent /\ PeerNeverAhead /\ ValidMessages
+\* S5: State numbers never exceed hard limit (counter overflow prevention)
+\* Per 3-SYNC.md: If state_num would exceed 2^64-1, session MUST be terminated
+\* The LocalStateChange guard (state_num[n] < MaxStateNum) ensures this
+StateNumBounded ==
+    \A n \in 1..NumNodes : state_num[n] <= MaxStateNum
+
+Safety == MonotonicStateNums /\ AckedNeverExceedsSent /\ PeerNeverAhead /\ ValidMessages /\ StateNumBounded
 
 -----------------------------------------------------------------------------
 (* Liveness Properties *)

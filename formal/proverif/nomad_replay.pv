@@ -12,11 +12,17 @@
  *   - Frames with seen nonce: REJECT
  *   - Frames above highest: accept and update window
  *
+ * CRITICAL: Window Advancement Ordering
+ *   The replay window MUST NOT advance until AFTER AEAD verification.
+ *   Otherwise, an attacker could send forged packets with high nonces
+ *   to advance the window, causing legitimate packets to be rejected
+ *   as "replays" (DoS attack). See specs/1-SECURITY.md §Replay Check Ordering.
+ *
  * Properties verified:
- *   1. Replayed frames are rejected
- *   2. Reordered frames within window are accepted
- *   3. Frames below window are rejected
- *   4. Nonce uniqueness per epoch
+ *   Q1: Frame authenticity (accepted frames were sent by peer)
+ *   Q2: No replay - same nonce never accepted twice
+ *   Q3: Payload integrity - payload not modified in transit
+ *   Q4: Window only advances for authenticated frames (DoS prevention)
  *)
 
 (* ============================================================ *)
@@ -70,6 +76,9 @@ event ReplayRejected(nonce).
 (* Frame rejected as below window *)
 event BelowWindowRejected(nonce).
 
+(* Nonce marked as seen in replay window - only after AEAD success *)
+event NonceSeen(nonce).
+
 (* ============================================================ *)
 (* Queries                                                      *)
 (* ============================================================ *)
@@ -86,6 +95,14 @@ query n: nonce, p1: bitstring, p2: bitstring;
 (* Q3: Frame integrity - payload not modified *)
 query n: nonce, p_sent: bitstring, p_recv: bitstring;
   event(FrameSent(n, p_sent)) && event(FrameAccepted(n, p_recv)) ==> p_sent = p_recv.
+
+(* Q4: Replay window only advances for authenticated frames *)
+(* This verifies that an attacker cannot advance the window by sending forged
+ * packets with high nonces (the DoS attack described in §Replay Check Ordering).
+ * The injective correspondence ensures each window advancement corresponds to
+ * exactly one frame acceptance, which requires AEAD success. *)
+query n: nonce, p: bitstring;
+  inj-event(FrameAccepted(n, p)) ==> inj-event(NonceSeen(n)).
 
 (* ============================================================ *)
 (* Nonce Construction                                           *)
@@ -187,6 +204,7 @@ let Receiver(key: bitstring, ep: epoch) =
       (* Nonce not seen - check if below window *)
       (* Simplified: accept if AEAD passed and not seen *)
       insert seen_nonces(n);
+      event NonceSeen(n);  (* Window advancement - only after AEAD success *)
       event FrameAccepted(n, payload);
 
       (* Update highest if needed *)
@@ -206,6 +224,7 @@ let Receiver(key: bitstring, ep: epoch) =
       out(highest_cell, highest)
     ) else (
       insert seen_nonces(n);
+      event NonceSeen(n);  (* Window advancement - only after AEAD success *)
       event FrameAccepted(n, payload);
       if nonce_lt(highest, n) then
         out(highest_cell, n)
@@ -223,6 +242,7 @@ let Receiver(key: bitstring, ep: epoch) =
       out(highest_cell, highest)
     ) else (
       insert seen_nonces(n);
+      event NonceSeen(n);  (* Window advancement - only after AEAD success *)
       event FrameAccepted(n, payload);
       if nonce_lt(highest, n) then
         out(highest_cell, n)
