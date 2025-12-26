@@ -59,13 +59,14 @@ Prepare the NOMAD Protocol for arXiv publication. Create a professional academic
 - [x] Annotated bibliography (why each reference is relevant)
 
 ### Phase 7: Formal Verification Section (NEW - from t11-formal)
-- [ ] Add "Formal Verification" section to paper (~1 page)
-- [ ] Describe ProVerif security proofs (handshake, replay, forward secrecy)
-- [ ] Describe TLA+ state machine verification (sync, rekey, roaming)
-- [ ] **Document PCS finding and fix** (rekey_auth_key) - this is a KEY contribution
-- [ ] Add ProVerif/Tamarin references to bibliography
-- [ ] Update abstract to mention "formally verified"
-- [ ] Reference formal/ directory for full models
+- [x] Add "Formal Verification" section to paper (~1 page)
+- [x] Describe ProVerif security proofs (handshake, replay, forward secrecy)
+- [x] Describe TLA+ state machine verification (sync, rekey, roaming)
+- [x] **Document PCS finding and fix** (rekey_auth_key) - this is a KEY contribution
+- [x] Add ProVerif/TLA+ references to bibliography
+- [x] Update abstract to mention "formally verified"
+- [x] Reference formal/ directory for full models
+- [x] Reduce font size (10pt → 9pt)
 
 ---
 

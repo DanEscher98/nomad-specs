@@ -1,6 +1,6 @@
 # NOMAD Paper Makefile
 
-MAIN = nomad
+MAIN = nomad_protocol
 LATEX = pdflatex
 BIBTEX = bibtex
 

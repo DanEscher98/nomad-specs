@@ -1,5 +1,12 @@
 \begin{thebibliography}{1}
 
+\bibitem{blanchet2016proverif}
+Bruno Blanchet.
+\newblock Modeling and verifying security protocols with the applied pi
+  calculus and proverif.
+\newblock In {\em Foundations and Trends in Privacy and Security}, volume~1,
+  pages 1--135, 2016.
+
 \bibitem{donenfeld2017wireguard}
 Jason~A. Donenfeld.
 \newblock Wireguard: Next generation kernel network tunnel.
@@ -10,6 +17,12 @@ Jason~A. Donenfeld.
 J.~Iyengar and M.~Thomson.
 \newblock Quic: A udp-based multiplexed and secure transport.
 \newblock RFC 9000, IETF, 2021.
+
+\bibitem{lamport2002tla}
+Leslie Lamport.
+\newblock {\em Specifying Systems: The TLA+ Language and Tools for Hardware and
+  Software Engineers}.
+\newblock Addison-Wesley, 2002.
 
 \bibitem{hypothesis}
 David~R. MacIver.
