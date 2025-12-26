@@ -1,0 +1,240 @@
+(*
+ * NOMAD Protocol - Forward Secrecy via Rekeying (FIXED VERSION)
+ * ProVerif Model
+ *
+ * This model tests the "rekey auth key" fix for PCS against active attackers.
+ *
+ * FIX: During handshake, derive a rekey_auth_key from static DH:
+ *   rekey_auth_key = HKDF(DH(s_i, S_r) || DH(S_i, s_r), "nomad rekey auth")
+ *
+ * During rekey, mix rekey_auth_key into key derivation:
+ *   key_new = HKDF(DH(e_i, e_r), rekey_auth_key, EPOCH)
+ *
+ * This prevents an attacker with only session keys from forging rekey responses,
+ * because they don't have access to the static keys used to derive rekey_auth_key.
+ *)
+
+(* ============================================================ *)
+(* Types and Channels                                           *)
+(* ============================================================ *)
+
+free c: channel.
+
+(* Secrets transmitted in different epochs *)
+free secret_epoch0: bitstring [private].
+free secret_epoch1: bitstring [private].
+free secret_epoch2: bitstring [private].
+
+(* Epoch identifiers *)
+const EPOCH0: bitstring.
+const EPOCH1: bitstring.
+const EPOCH2: bitstring.
+
+(* ============================================================ *)
+(* Cryptographic Primitives                                     *)
+(* ============================================================ *)
+
+type privkey.
+type pubkey.
+
+fun pk(privkey): pubkey.
+
+fun dh(privkey, pubkey): bitstring.
+equation forall a: privkey, b: privkey;
+  dh(a, pk(b)) = dh(b, pk(a)).
+
+fun aead_enc(bitstring, bitstring, bitstring): bitstring.
+reduc forall msg: bitstring, key: bitstring, ad: bitstring;
+  aead_dec(aead_enc(msg, key, ad), key, ad) = msg.
+
+fun hash(bitstring): bitstring.
+fun hkdf(bitstring, bitstring): bitstring.
+fun hkdf3(bitstring, bitstring, bitstring): bitstring.
+fun concat(bitstring, bitstring): bitstring.
+fun pub_to_bits(pubkey): bitstring [data, typeConverter].
+fun bits_to_pub(bitstring): pubkey [data, typeConverter].
+equation forall k: privkey; bits_to_pub(pub_to_bits(pk(k))) = pk(k).
+
+(* Key derivation for new epoch - NOW includes rekey_auth_key *)
+fun derive_epoch_keys_with_auth(bitstring, bitstring, bitstring): bitstring.
+
+(* Derive rekey auth key from static DH *)
+const REKEY_AUTH_CONTEXT: bitstring.
+fun derive_rekey_auth_key(bitstring): bitstring.
+
+(* ============================================================ *)
+(* Events                                                       *)
+(* ============================================================ *)
+
+event EpochStarted(bitstring, bitstring).
+event EpochEnded(bitstring).
+event KeyCompromised(bitstring, bitstring).
+event SecretSent(bitstring, bitstring).
+event SecretReceived(bitstring, bitstring).
+
+(* ============================================================ *)
+(* Queries - Testing the Fix                                    *)
+(* ============================================================ *)
+
+(* Q1: Forward Secrecy - Epoch 0 secrets remain secret *)
+(* EXPECTED: PASS (unchanged from original) *)
+query attacker(secret_epoch0).
+
+(* Q2: Epoch 1 secrets after compromise *)
+(* EXPECTED: FAIL (we explicitly leak key1 - intentional) *)
+query attacker(secret_epoch1).
+
+(* Q3: Post-Compromise Security - Epoch 2 secrets after epoch 1 compromise *)
+(* EXPECTED: PASS with the fix!
+ *
+ * The attacker has key1 but NOT rekey_auth_key (derived from static DH).
+ * Without rekey_auth_key, attacker cannot:
+ *   1. Compute correct key2 even if they inject their own ephemeral
+ *   2. The key derivation requires: derive_epoch_keys_with_auth(dh_secret, rekey_auth_key, EPOCH2)
+ *   3. Attacker doesn't have rekey_auth_key, so they can't derive key2
+ *)
+query attacker(secret_epoch2).
+
+(* ============================================================ *)
+(* Session with Multiple Epochs (FIXED)                         *)
+(* ============================================================ *)
+
+let SessionInitiator(initial_key: bitstring, rekey_auth_key: bitstring) =
+  (* === EPOCH 0 === *)
+  let key0 = initial_key in
+  event EpochStarted(EPOCH0, hash(key0));
+
+  (* Send secret in epoch 0 *)
+  let enc0 = aead_enc(secret_epoch0, key0, EPOCH0) in
+  out(c, enc0);
+  event SecretSent(EPOCH0, secret_epoch0);
+
+  (* Rekey to epoch 1 *)
+  new e1_priv: privkey;
+  let e1_pub = pk(e1_priv) in
+  let rekey1_msg = aead_enc(pub_to_bits(e1_pub), key0, EPOCH0) in
+  out(c, rekey1_msg);
+
+  in(c, rekey1_resp: bitstring);
+  let resp1_bits = aead_dec(rekey1_resp, key0, EPOCH0) in
+  let dh1_secret = dh(e1_priv, bits_to_pub(resp1_bits)) in
+  (* FIX: Include rekey_auth_key in key derivation *)
+  let key1 = derive_epoch_keys_with_auth(dh1_secret, rekey_auth_key, EPOCH1) in
+
+  event EpochEnded(EPOCH0);
+
+  (* === EPOCH 1 === *)
+  event EpochStarted(EPOCH1, hash(key1));
+
+  (* Send secret in epoch 1 *)
+  let enc1 = aead_enc(secret_epoch1, key1, EPOCH1) in
+  out(c, enc1);
+  event SecretSent(EPOCH1, secret_epoch1);
+
+  (* Simulate key compromise in epoch 1 - attacker learns key1 *)
+  (* NOTE: Attacker gets key1 but NOT rekey_auth_key *)
+  out(c, key1);
+  event KeyCompromised(EPOCH1, key1);
+
+  (* Rekey to epoch 2 - should restore security (PCS) *)
+  new e2_priv: privkey;
+  let e2_pub = pk(e2_priv) in
+  let rekey2_msg = aead_enc(pub_to_bits(e2_pub), key1, EPOCH1) in
+  out(c, rekey2_msg);
+
+  in(c, rekey2_resp: bitstring);
+  let resp2_bits = aead_dec(rekey2_resp, key1, EPOCH1) in
+  let dh2_secret = dh(e2_priv, bits_to_pub(resp2_bits)) in
+  (* FIX: Include rekey_auth_key in key derivation *)
+  let key2 = derive_epoch_keys_with_auth(dh2_secret, rekey_auth_key, EPOCH2) in
+
+  event EpochEnded(EPOCH1);
+
+  (* === EPOCH 2 === *)
+  event EpochStarted(EPOCH2, hash(key2));
+
+  (* Send secret in epoch 2 - NOW secure despite epoch 1 compromise *)
+  let enc2 = aead_enc(secret_epoch2, key2, EPOCH2) in
+  out(c, enc2);
+  event SecretSent(EPOCH2, secret_epoch2);
+
+  0.
+
+let SessionResponder(initial_key: bitstring, rekey_auth_key: bitstring) =
+  (* === EPOCH 0 === *)
+  let key0 = initial_key in
+
+  (* Receive secret in epoch 0 *)
+  in(c, enc0: bitstring);
+  let dec0 = aead_dec(enc0, key0, EPOCH0) in
+  event SecretReceived(EPOCH0, dec0);
+
+  (* Handle rekey to epoch 1 *)
+  in(c, rekey1_msg: bitstring);
+  let init1_bits = aead_dec(rekey1_msg, key0, EPOCH0) in
+
+  new r1_priv: privkey;
+  let r1_pub = pk(r1_priv) in
+  let rekey1_resp = aead_enc(pub_to_bits(r1_pub), key0, EPOCH0) in
+  out(c, rekey1_resp);
+
+  let dh1_secret = dh(r1_priv, bits_to_pub(init1_bits)) in
+  (* FIX: Include rekey_auth_key in key derivation *)
+  let key1 = derive_epoch_keys_with_auth(dh1_secret, rekey_auth_key, EPOCH1) in
+
+  (* === EPOCH 1 === *)
+
+  (* Receive secret in epoch 1 *)
+  in(c, enc1: bitstring);
+  let dec1 = aead_dec(enc1, key1, EPOCH1) in
+  event SecretReceived(EPOCH1, dec1);
+
+  (* Attacker also compromises responder's key1 *)
+  (* NOTE: Attacker gets key1 but NOT rekey_auth_key *)
+  out(c, key1);
+
+  (* Handle rekey to epoch 2 *)
+  in(c, rekey2_msg: bitstring);
+  let init2_bits = aead_dec(rekey2_msg, key1, EPOCH1) in
+
+  new r2_priv: privkey;
+  let r2_pub = pk(r2_priv) in
+  let rekey2_resp = aead_enc(pub_to_bits(r2_pub), key1, EPOCH1) in
+  out(c, rekey2_resp);
+
+  let dh2_secret = dh(r2_priv, bits_to_pub(init2_bits)) in
+  (* FIX: Include rekey_auth_key in key derivation *)
+  let key2 = derive_epoch_keys_with_auth(dh2_secret, rekey_auth_key, EPOCH2) in
+
+  (* === EPOCH 2 === *)
+
+  (* Receive secret in epoch 2 *)
+  in(c, enc2: bitstring);
+  let dec2 = aead_dec(enc2, key2, EPOCH2) in
+  event SecretReceived(EPOCH2, dec2);
+
+  0.
+
+(* ============================================================ *)
+(* Main Process                                                 *)
+(* ============================================================ *)
+
+process
+  (* Static keys (from Noise_IK handshake) *)
+  new s_i: privkey;  (* Initiator static private *)
+  new s_r: privkey;  (* Responder static private *)
+  let S_i = pk(s_i) in  (* Initiator static public *)
+  let S_r = pk(s_r) in  (* Responder static public *)
+
+  (* Derive rekey_auth_key from static DH during handshake *)
+  (* Both parties compute: DH(s_i, S_r) = DH(s_r, S_i) *)
+  let static_dh = dh(s_i, S_r) in  (* = dh(s_r, S_i) by DH equation *)
+  let rekey_auth_key = derive_rekey_auth_key(static_dh) in
+
+  (* Initial session key (from handshake - simplified) *)
+  new initial_key: bitstring;
+
+  (
+    SessionInitiator(initial_key, rekey_auth_key) |
+    SessionResponder(initial_key, rekey_auth_key)
+  )
