@@ -22,6 +22,7 @@ dependencies = [
     # Reference implementation dependencies (crypto)
     "cryptography>=42.0",
     "pynacl>=1.5",
+    "noiseprotocol>=0.3",  # Noise_IK handshake
     # JSON5 for test vectors with comments
     "json5>=0.9",
     # Utilities

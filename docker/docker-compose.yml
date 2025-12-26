@@ -1,20 +1,28 @@
 # Nomad Protocol Conformance Test Infrastructure
 #
-# This compose file supports plugging in any Nomad implementation.
-# Set SERVER_CONTEXT/SERVER_DOCKERFILE and CLIENT_CONTEXT/CLIENT_DOCKERFILE
-# to point to your implementation's build context.
+# This compose file uses pre-built images for testing implementations.
+# Build images first with the implementation's build system, then run tests.
 #
-# Default: Uses the stub implementation (docker/Dockerfile.stub) for testing
-# the test infrastructure itself.
+# For Rust implementation:
+#   cd ../nomad-rs && just docker-server docker-client
+#   Then: docker compose up -d
+#
+# Default images: nomad-echo-server (x86), nomad-client-arm (ARM64/QEMU)
 #
 # Usage:
-#   # Run with stub implementation
+#   # Start containers
 #   docker compose up -d
 #
-#   # Run with external implementation
-#   SERVER_CONTEXT=/path/to/impl SERVER_DOCKERFILE=Dockerfile docker compose up -d
+#   # Run tests
+#   uv run pytest ../tests/
 #
-#   # Run with network chaos
+#   # Stop containers
+#   docker compose down
+#
+#   # With packet capture
+#   docker compose --profile capture up -d
+#
+#   # With network chaos
 #   docker compose --profile chaos up -d
 
 services:
@@ -23,18 +31,16 @@ services:
   # ===========================================================================
 
   nomad-server:
-    build:
-      context: ${SERVER_CONTEXT:-.}
-      dockerfile: ${SERVER_DOCKERFILE:-Dockerfile.stub}
-      target: ${SERVER_TARGET:-server}
+    image: ${SERVER_IMAGE:-nomad-echo-server}
     container_name: nomad-server
     environment:
       - NOMAD_MODE=server
       - NOMAD_SERVER_PRIVATE_KEY=${SERVER_PRIVATE_KEY:-}
-      - NOMAD_SERVER_PUBLIC_KEY=${SERVER_PUBLIC_KEY:-}
+      - NOMAD_SERVER_PUBLIC_KEY=${SERVER_PUBLIC_KEY:-gqNRjwG8OsClvG2vWuafYeERaM95Pk0rTLmFAjh6JDo=}
       - NOMAD_STATE_TYPE=${STATE_TYPE:-nomad.echo.v1}
       - NOMAD_LOG_LEVEL=${LOG_LEVEL:-debug}
       - NOMAD_BIND_ADDR=0.0.0.0:19999
+      - NOMAD_TEST_MODE=${TEST_MODE:-true}
     networks:
       nomad-net:
         ipv4_address: 172.28.0.10
@@ -50,16 +56,14 @@ services:
     restart: unless-stopped
 
   nomad-client:
-    build:
-      context: ${CLIENT_CONTEXT:-.}
-      dockerfile: ${CLIENT_DOCKERFILE:-Dockerfile.stub}
-      target: ${CLIENT_TARGET:-client}
+    image: ${CLIENT_IMAGE:-nomad-client-arm}
+    platform: ${CLIENT_PLATFORM:-linux/arm64}
     container_name: nomad-client
     environment:
       - NOMAD_MODE=client
       - NOMAD_SERVER_HOST=172.28.0.10
       - NOMAD_SERVER_PORT=19999
-      - NOMAD_SERVER_PUBLIC_KEY=${SERVER_PUBLIC_KEY:-}
+      - NOMAD_SERVER_PUBLIC_KEY=${SERVER_PUBLIC_KEY:-gqNRjwG8OsClvG2vWuafYeERaM95Pk0rTLmFAjh6JDo=}
       - NOMAD_LOG_LEVEL=${LOG_LEVEL:-debug}
     networks:
       nomad-net:
@@ -98,7 +102,6 @@ services:
   # Network Chaos (for resilience testing)
   # ===========================================================================
 
-  # Introduce network delays, packet loss, etc.
   chaos-delay:
     image: gaiaadm/pumba:latest
     container_name: nomad-chaos-delay

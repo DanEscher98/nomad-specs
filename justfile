@@ -63,6 +63,13 @@ install:
 test: install
     cd tests && uv run pytest -v
 
+# Run E2E tests against running containers (requires docker-up first)
+test-e2e: install
+    set -a && source docker/.env && set +a && cd tests && uv run pytest protocol/test_e2e_handshake.py -v
+
+# Quick E2E: start containers, test, stop
+e2e: docker-up test-e2e docker-down
+
 # Run unit tests (no containers needed)
 test-unit: install
     cd tests && uv run pytest unit/ -v
@@ -75,9 +82,9 @@ test-protocol: install docker-up
 test-wire: install docker-up-capture
     cd tests && uv run pytest wire/ -v
 
-# Run adversarial tests
-test-adversarial: install docker-up
-    cd tests && uv run pytest adversarial/ -v
+# Run adversarial tests (E2E - requires containers)
+test-adversarial: install
+    set -a && source docker/.env && set +a && cd tests && uv run pytest adversarial/ -v -m adversarial
 
 # Run resilience tests (network chaos)
 test-resilience: install docker-up
@@ -96,9 +103,13 @@ test-cov: install
 test-parallel: install
     cd tests && uv run pytest -n auto -v
 
-# Run a specific test file
+# Run a specific test file (without .env - for unit tests)
 test-file file: install
     cd tests && uv run pytest {{ file }} -v
+
+# Run a specific E2E test file (with .env)
+test-e2e-file file: install
+    set -a && source docker/.env && set +a && cd tests && uv run pytest {{ file }} -v
 
 # =============================================================================
 # Development

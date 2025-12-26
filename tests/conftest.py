@@ -7,12 +7,25 @@ This module provides:
 - Test keypair fixtures for reproducible cryptographic tests
 - Network simulation fixtures for resilience tests
 
+Two modes are supported:
+
+1. External mode (for E2E with pre-built images):
+   - Set NOMAD_EXTERNAL_CONTAINERS=1
+   - Start containers first: cd docker && docker compose up -d
+   - Fixtures connect to already-running containers
+   - Stop containers after: docker compose down
+
+2. Managed mode (for testing test infrastructure):
+   - Fixtures build and manage container lifecycle
+   - Requires all NOMAD_* env vars to be set
+
 All fixtures follow the contracts defined in .octopus/contracts/interfaces.md
 """
 
 from __future__ import annotations
 
 import os
+import socket
 from collections.abc import Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -29,25 +42,55 @@ from lib.containers import (
 )
 
 
-def require_env(name: str) -> str:
+def require_env(name: str, default: str | None = None) -> str:
     """Get required environment variable or fail with clear error.
 
     Args:
         name: Environment variable name.
+        default: Default value if not set (None means required).
 
     Returns:
         The environment variable value.
 
     Raises:
-        RuntimeError: If the variable is not set.
+        RuntimeError: If the variable is not set and no default.
     """
-    value = os.environ.get(name)
-    if not value:
+    value = os.environ.get(name, default)
+    if value is None:
         raise RuntimeError(
             f"Required environment variable {name} is not set.\n"
             f"Copy docker/.env.example to docker/.env and configure it."
         )
     return value
+
+
+def is_external_mode() -> bool:
+    """Check if using external (pre-running) containers."""
+    return os.environ.get("NOMAD_EXTERNAL_CONTAINERS", "").lower() in ("1", "true", "yes")
+
+
+def wait_for_port(host: str, port: int, timeout: float = 30.0) -> bool:
+    """Wait for a TCP port to become available.
+
+    Args:
+        host: Host to connect to.
+        port: Port number.
+        timeout: Maximum time to wait.
+
+    Returns:
+        True if port is available, False if timeout.
+    """
+    import time
+
+    start = time.monotonic()
+    while time.monotonic() - start < timeout:
+        try:
+            with socket.create_connection((host, port), timeout=1.0):
+                return True
+        except (OSError, ConnectionRefusedError):
+            time.sleep(0.5)
+    return False
+
 
 if TYPE_CHECKING:
     from docker.models.containers import Container
@@ -93,16 +136,24 @@ def test_keypairs() -> TestKeyPairs:
 
 
 @pytest.fixture(scope="session")
-def container_manager(docker_client) -> Iterator[ContainerManager]:
+def container_manager(docker_client) -> Iterator[ContainerManager | None]:
     """Container manager for test lifecycle.
 
-    Creates an isolated network for tests and manages container lifecycle.
-    Cleans up all containers and network after tests complete.
+    In external mode (NOMAD_EXTERNAL_CONTAINERS=1), returns None since
+    containers are managed externally via docker-compose.
 
-    Required environment variables:
+    In managed mode, creates an isolated network for tests and manages
+    container lifecycle. Cleans up all containers and network after tests.
+
+    Required environment variables (managed mode only):
         NOMAD_TEST_NETWORK: Docker network name for tests
         NOMAD_TEST_SUBNET: Subnet for test network (CIDR notation)
     """
+    if is_external_mode():
+        log.info("external_mode", msg="Using pre-running containers")
+        yield None
+        return
+
     manager = ContainerManager(
         client=docker_client,
         network_name=require_env("NOMAD_TEST_NETWORK"),
@@ -118,6 +169,45 @@ def container_manager(docker_client) -> Iterator[ContainerManager]:
     manager.cleanup()
 
 
+@pytest.fixture(scope="session")
+def server_address() -> tuple[str, int]:
+    """Server address for E2E tests.
+
+    Returns the server's (host, port) for connecting.
+    Works in both external and managed modes.
+
+    In external mode: Uses NOMAD_SERVER_HOST (default: 172.28.0.10) and port 19999
+    In managed mode: Uses NOMAD_TEST_SERVER_IP
+
+    Returns:
+        Tuple of (host, port).
+    """
+    if is_external_mode():
+        host = require_env("NOMAD_SERVER_HOST", "172.28.0.10")
+        port = int(require_env("NOMAD_PORT", "19999"))
+    else:
+        host = require_env("NOMAD_TEST_SERVER_IP")
+        port = int(require_env("NOMAD_PORT"))
+    return (host, port)
+
+
+@pytest.fixture(scope="session")
+def server_public_key() -> str:
+    """Server's public key for handshake.
+
+    Returns the server's Curve25519 public key (base64-encoded).
+    Uses the well-known test key by default.
+
+    Returns:
+        Base64-encoded public key.
+    """
+    # Default is the Rust implementation test key
+    return require_env(
+        "NOMAD_SERVER_PUBLIC_KEY",
+        "gqNRjwG8OsClvG2vWuafYeERaM95Pk0rTLmFAjh6JDo="
+    )
+
+
 # =============================================================================
 # Function-scoped fixtures (fresh for each test)
 # =============================================================================
@@ -125,37 +215,69 @@ def container_manager(docker_client) -> Iterator[ContainerManager]:
 
 @pytest.fixture
 def server_container(
-    container_manager: ContainerManager,
+    container_manager: ContainerManager | None,
     test_keypairs: TestKeyPairs,
-) -> Iterator[Container]:
+    docker_client,
+) -> Iterator[Container | None]:
     """Running server container with health check passed.
 
-    Starts a fresh server container for each test.
-    Container is stopped and removed after the test.
+    In external mode: Returns the pre-running container (or None if not found).
+    In managed mode: Starts a fresh server container for each test.
 
     Yields:
-        Container: The running, healthy server container.
+        Container: The running, healthy server container (or None in external mode).
 
     Raises:
-        RuntimeError: If server fails health check.
+        RuntimeError: If server fails health check (managed mode only).
     """
+    if is_external_mode():
+        # In external mode, try to get the existing container
+        try:
+            container = docker_client.containers.get("nomad-server")
+            yield container
+        except Exception:
+            # Container may not exist if running tests outside Docker
+            yield None
+        return
+
+    if container_manager is None:
+        yield None
+        return
+
     with container_manager.server(keypairs=test_keypairs) as container:
         yield container
 
 
 @pytest.fixture
 def client_container(
-    container_manager: ContainerManager,
-    server_container: Container,
+    container_manager: ContainerManager | None,
+    server_container: Container | None,
     test_keypairs: TestKeyPairs,
-) -> Iterator[Container]:
+    docker_client,
+) -> Iterator[Container | None]:
     """Running client container connected to server.
+
+    In external mode: Returns the pre-running container (or None if not found).
+    In managed mode: Starts a fresh client container for each test.
 
     Depends on server_container to ensure server is running first.
 
     Yields:
-        Container: The running client container.
+        Container: The running client container (or None in external mode).
     """
+    if is_external_mode():
+        # In external mode, try to get the existing container
+        try:
+            container = docker_client.containers.get("nomad-client")
+            yield container
+        except Exception:
+            yield None
+        return
+
+    if container_manager is None:
+        yield None
+        return
+
     # Get server IP from environment
     server_ip = require_env("NOMAD_TEST_SERVER_IP")
 
@@ -168,22 +290,46 @@ def client_container(
 
 @pytest.fixture
 def packet_capture(
-    container_manager: ContainerManager,
+    container_manager: ContainerManager | None,
     tmp_path: Path,
-) -> Iterator[PacketCapture]:
+) -> Iterator[PacketCapture | None]:
     """Packet capture for wire-level tests.
 
     Provides a PacketCapture instance that can capture traffic
     on the test network using tcpdump.
 
+    In external mode, returns None (use docker-compose --profile capture).
+
     Yields:
         PacketCapture: Capture manager for starting/stopping capture.
     """
+    if container_manager is None:
+        yield None
+        return
+
     capture = PacketCapture(
         manager=container_manager,
         capture_dir=tmp_path / "capture",
     )
     yield capture
+
+
+@pytest.fixture
+def udp_socket(server_address: tuple[str, int]) -> Iterator[socket.socket]:
+    """UDP socket connected to the server.
+
+    Provides a UDP socket that can send/receive packets to the server.
+    Useful for E2E tests that need to send raw protocol messages.
+
+    Yields:
+        socket.socket: UDP socket connected to server.
+    """
+    host, port = server_address
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(5.0)
+    sock.connect((host, port))
+    yield sock
+    sock.close()
 
 
 # =============================================================================
@@ -314,6 +460,15 @@ def pytest_report_header(config):
     lines = []
     lines.append("Nomad Protocol Conformance Test Suite")
     lines.append(f"  Docker dir: {Path(__file__).parent.parent / 'docker'}")
+
+    # Show mode
+    if is_external_mode():
+        lines.append("  Mode: External (using pre-running containers)")
+        host = os.environ.get("NOMAD_SERVER_HOST", "172.28.0.10")
+        port = os.environ.get("NOMAD_PORT", "19999")
+        lines.append(f"  Server: {host}:{port}")
+    else:
+        lines.append("  Mode: Managed (fixtures control containers)")
 
     # Check Docker status
     try:
