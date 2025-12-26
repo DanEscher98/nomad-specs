@@ -79,6 +79,10 @@ test-wire: install docker-up-capture
 test-adversarial: install docker-up
     cd tests && uv run pytest adversarial/ -v
 
+# Run resilience tests (network chaos)
+test-resilience: install docker-up
+    cd tests && uv run pytest resilience/ -v --timeout=120
+
 # Run interop tests (multiple implementations)
 test-interop: install
     cd tests && uv run pytest interop/ -v

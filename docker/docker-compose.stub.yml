@@ -1,0 +1,57 @@
+# Nomad Protocol Test Infrastructure - Stub Implementation
+#
+# Uses the minimal Python stub for testing the test infrastructure itself.
+# This does NOT implement the real protocol - use for CI/infra testing only.
+#
+# Usage:
+#   docker compose -f docker-compose.stub.yml up -d
+#   docker compose -f docker-compose.stub.yml down
+
+services:
+  nomad-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.stub
+      target: server
+    container_name: nomad-server
+    environment:
+      - NOMAD_MODE=server
+      - NOMAD_BIND_ADDR=0.0.0.0:19999
+      - NOMAD_LOG_LEVEL=debug
+    networks:
+      nomad-net:
+        ipv4_address: 172.28.0.10
+    ports:
+      - "19999:19999/udp"
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/health"]
+      interval: 1s
+      timeout: 1s
+      retries: 30
+      start_period: 5s
+
+  nomad-client:
+    build:
+      context: .
+      dockerfile: Dockerfile.stub
+      target: client
+    container_name: nomad-client
+    environment:
+      - NOMAD_MODE=client
+      - NOMAD_SERVER_HOST=172.28.0.10
+      - NOMAD_SERVER_PORT=19999
+      - NOMAD_LOG_LEVEL=debug
+    networks:
+      nomad-net:
+        ipv4_address: 172.28.0.20
+    depends_on:
+      nomad-server:
+        condition: service_healthy
+
+networks:
+  nomad-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16

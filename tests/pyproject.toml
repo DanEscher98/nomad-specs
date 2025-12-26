@@ -51,12 +51,13 @@ packages = ["lib"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["unit", "protocol", "wire", "interop", "adversarial"]
+testpaths = ["unit", "protocol", "wire", "interop", "adversarial", "resilience"]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "container: tests requiring docker containers",
     "network: tests requiring network access",
     "adversarial: security/fuzzing tests",
+    "resilience: network stress and chaos tests",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning:scapy.*",
@@ -72,6 +73,7 @@ select = ["E", "F", "I", "UP", "B", "SIM", "TCH"]
 ignore = [
     "E501",  # line too long (handled by formatter)
     "TC003", # stdlib imports in type checking block (overly pedantic for Iterator)
+    "SIM117",  # nested with statements - more readable for chaos testing
 ]
 
 [tool.mypy]
