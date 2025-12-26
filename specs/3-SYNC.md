@@ -317,6 +317,43 @@ State types MUST document whether intermediate states can be safely skipped.
 
 ---
 
+## Formal Verification
+
+The sync layer has been formally verified using TLA+.
+
+### TLA+ Specification
+
+| Spec | Properties Verified |
+|------|---------------------|
+| `formal/tlaplus/SyncLayer.tla` | Eventual consistency, idempotent diffs, monotonic versions |
+
+### Verified Properties
+
+| Property | Type | Result | Description |
+|----------|------|--------|-------------|
+| MonotonicStateNums | Safety | ✅ Proven | State versions only increase |
+| AckedNeverExceedsSent | Safety | ✅ Proven | Acks bounded by sent versions |
+| PeerNeverAhead | Safety | ✅ Proven | Receiver can't be ahead of sender |
+| ValidMessages | Safety | ✅ Proven | Messages have valid version numbers |
+| EventualConsistency | Liveness | ✅ Proven | States converge when messages get through |
+
+### Convergence Guarantee
+
+The TLA+ model proves that under fair scheduling (eventual message delivery), the sync layer achieves eventual consistency:
+
+```
+EventualConsistency ==
+    \A n \in 1..NumNodes :
+        [](state_num[n] = state_num[n]) ~>
+            (peer_state_num[Peer(n)] = state_num[n])
+```
+
+This formalizes the core promise: **if at least one message gets through, states converge**.
+
+See `formal/README.md` for instructions on running the verification tools.
+
+---
+
 ## Test Mapping
 
 | Spec Section | Test File |
