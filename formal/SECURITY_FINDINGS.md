@@ -8,12 +8,12 @@
 
 Formal verification of the NOMAD protocol reveals **one significant security limitation** in the rekeying mechanism, along with several model refinements needed to accurately capture protocol behavior. All core security properties (authentication, confidentiality, replay protection, anti-amplification) are verified.
 
-| Finding | Severity | Type | Status |
-|---------|----------|------|--------|
-| PCS fails against active attackers | **HIGH** | Design Limitation | Documented |
-| Liveness requires bounded message loss | MEDIUM | Model Design | Fixed |
-| NonceUniqueness invariant off-by-one | LOW | Model Bug | Fixed |
-| AckedNeverExceedsSent wrong comparison | LOW | Model Bug | Fixed |
+| Finding                                | Severity | Type              | Status     |
+| -------------------------------------- | -------- | ----------------- | ---------- |
+| PCS fails against active attackers     | **HIGH** | Design Limitation | Documented |
+| Liveness requires bounded message loss | MEDIUM   | Model Design      | Fixed      |
+| NonceUniqueness invariant off-by-one   | LOW      | Model Bug         | Fixed      |
+| AckedNeverExceedsSent wrong comparison | LOW      | Model Bug         | Fixed      |
 
 ---
 
@@ -47,16 +47,18 @@ Query: attacker(secret_epoch2)
 Result: ATTACK FOUND
 ```
 
-ProVerif correctly identifies this attack. The fundamental issue is that rekey messages are authenticated only with the *current* session key (which the attacker has), not with static keys.
+ProVerif correctly identifies this attack. The fundamental issue is that rekey messages are authenticated only with the _current_ session key (which the attacker has), not with static keys.
 
 #### Mitigation Options
 
-1. **Static key authentication during rekey** (breaking change)
-   - Sign rekey ephemeral with static key
-   - Requires Noise_IK-style DH with static keys
-   - Adds ~32 bytes to rekey messages
+1. **Rekey auth key derived from static DH** (VERIFIED FIX)
+   - During handshake: `rekey_auth_key = HKDF(DH(s_i, S_r), "nomad rekey auth")`
+   - During rekey: `key_new = HKDF(DH(e_i, e_r), rekey_auth_key, EPOCH)`
+   - **ProVerif verified**: See `nomad_rekey_fixed.pv` - Q3 passes
+   - No wire format changes, just different KDF
+   - Requires retaining one 32-byte key per session
 
-2. **Accept limitation and document** (current choice)
+2. **Accept limitation and document** (previous choice)
    - PCS only holds against passive eavesdroppers
    - Active attackers require session termination + new handshake
    - Spec should clearly state this limitation
@@ -67,9 +69,20 @@ ProVerif correctly identifies this attack. The fundamental issue is that rekey m
 
 #### Recommendation
 
-Document the limitation clearly in the security specification:
+**Implement Option 1 (rekey auth key)** - This is a low-complexity fix that provides full PCS:
 
-> **PCS Limitation**: NOMAD rekeying provides post-compromise security against passive attackers only. An active attacker with knowledge of a session key can MitM the next rekey to maintain access. To recover from suspected key compromise with an active attacker present, terminate the session and perform a new handshake.
+```
+// During handshake, after computing session keys:
+rekey_auth_key = HKDF(static_dh_secret, "nomad rekey auth")
+
+// During each rekey:
+key_new = HKDF(ephemeral_dh_secret, rekey_auth_key, epoch_id)
+```
+
+**Spec changes required**:
+- Update 1-SECURITY.md §Rekeying to include `rekey_auth_key` in KDF
+- Add `rekey_auth_key` to session state (32 bytes)
+- No wire format changes needed
 
 ---
 
@@ -144,59 +157,65 @@ TimeExpiration(r) ==
 
 ### ProVerif Models
 
-| Model | Queries | Result | Notes |
-|-------|---------|--------|-------|
-| `nomad_handshake.pv` | 5 | **PASS** | Key secrecy, mutual auth, key agreement |
-| `nomad_replay.pv` | 3 | **PASS** | Frame authenticity, no replay, integrity |
-| `nomad_rekey.pv` | 3 | 1 PASS, 2 EXPECTED FAIL | FS verified; PCS fails (see F1) |
+| Model                | Queries | Result                  | Notes                                    |
+| -------------------- | ------- | ----------------------- | ---------------------------------------- |
+| `nomad_handshake.pv` | 5       | **PASS**                | Key secrecy, mutual auth, key agreement  |
+| `nomad_replay.pv`    | 3       | **PASS**                | Frame authenticity, no replay, integrity |
+| `nomad_rekey.pv`     | 3       | 1 PASS, 2 EXPECTED FAIL | FS verified; PCS fails (see F1)          |
 
 #### Query Details
 
 **nomad_handshake.pv**:
+
 - `attacker(session_key_i2r)`: PASS - Session keys secret
 - `event(ResponderAccepts(...)) ==> event(InitiatorSent(...))`: PASS - Mutual authentication
 - Key agreement queries: PASS
 
 **nomad_replay.pv**:
+
 - `event(FrameAccepted(n, p)) ==> event(FrameSent(n, p))`: PASS - Authenticity
 - `event(FrameAccepted(n, p1)) && event(FrameAccepted(n, p2)) ==> p1 = p2`: PASS - No replay
 - Frame integrity: PASS
 
 **nomad_rekey.pv**:
+
 - `attacker(secret_epoch0)`: PASS - Forward secrecy works
 - `attacker(secret_epoch1)`: EXPECTED FAIL - We model key compromise
 - `attacker(secret_epoch2)`: EXPECTED FAIL - PCS limitation (F1)
 
 ### TLA+ Models
 
-| Model | Invariants | States | Result |
-|-------|------------|--------|--------|
-| `RekeyStateMachine.tla` | 6 | 2.8M | **PASS** |
-| `SyncLayer.tla` | 6 | 200K | **PASS** |
-| `Roaming.tla` | 6 | 41K | **PASS** |
+| Model                   | Invariants | States | Result   |
+| ----------------------- | ---------- | ------ | -------- |
+| `RekeyStateMachine.tla` | 6          | 2.8M   | **PASS** |
+| `SyncLayer.tla`         | 6          | 200K   | **PASS** |
+| `Roaming.tla`           | 6          | 41K    | **PASS** |
 
 #### Invariants Verified
 
 **RekeyStateMachine**:
+
 - TypeOK, Safety, MonotonicEpochs, KeysMatchEpoch, OldKeysFromPreviousEpoch, NonceUniqueness
 
 **SyncLayer**:
+
 - TypeOK, Safety, MonotonicStateNums, AckedNeverExceedsSent, PeerNeverAhead, ValidMessages
 
 **Roaming**:
+
 - TypeOK, Safety, AntiAmplification, SessionSurvivesRoaming, ValidRemoteEndpoint, AttackerCannotRedirect
 
 ---
 
 ## Verification Gaps (Future Work)
 
-| Gap | Priority | Description |
-|-----|----------|-------------|
-| Identity hiding | P1 | Add query to verify initiator static key not leaked to passive observer |
-| Idempotent diff property | P1 | Add TLA+ invariant for `ApplyDiff(ApplyDiff(s,d),d) = ApplyDiff(s,d)` |
-| Epoch desynchronization | P2 | Model concurrent rekey attempts from both sides |
-| Handshake timeout/retry | P3 | Model retry mechanism for lost handshake messages |
-| Session ID collision | P3 | Verify collision retry logic |
+| Gap                      | Priority | Description                                                             |
+| ------------------------ | -------- | ----------------------------------------------------------------------- |
+| Identity hiding          | P1       | Add query to verify initiator static key not leaked to passive observer |
+| Idempotent diff property | P1       | Add TLA+ invariant for `ApplyDiff(ApplyDiff(s,d),d) = ApplyDiff(s,d)`   |
+| Epoch desynchronization  | P2       | Model concurrent rekey attempts from both sides                         |
+| Handshake timeout/retry  | P3       | Model retry mechanism for lost handshake messages                       |
+| Session ID collision     | P3       | Verify collision retry logic                                            |
 
 ---
 
