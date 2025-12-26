@@ -377,28 +377,40 @@ Implementations MUST maintain a sliding window of received nonces.
 
 ### Replay Check Ordering
 
-> **Performance**: Replay check MUST occur **BEFORE** AEAD verification.
+> **CRITICAL**: The replay window MUST NOT advance until AFTER AEAD verification succeeds.
+
+The check has two phases:
+1. **Check** if nonce is a replay (cheap, read-only)
+2. **Update** window with authenticated nonce (only after AEAD passes)
 
 ```python
 def receive_frame(frame):
     nonce = parse_nonce(frame)
 
-    # 1. Replay check FIRST (cheap, prevents DoS via AEAD computation)
-    if is_replay(nonce):
+    # 1. Check if definitely a replay (read-only, does NOT advance window)
+    #    This is safe because it only rejects; never modifies state
+    if is_definite_replay(nonce):
         drop_silently()
         return
 
-    # 2. AEAD verification (expensive)
+    # 2. AEAD verification (expensive, but required before trusting nonce)
     if not verify_aead(frame):
         drop_silently()
         return
 
-    # 3. Update replay window only after successful verification
+    # 3. NOW safe to update window (nonce is authenticated)
     mark_seen(nonce)
     process_frame(frame)
 ```
 
-This ordering prevents CPU exhaustion attacks where an attacker floods replayed packets to force expensive AEAD operations.
+> **Why this ordering matters**: If the window advanced before AEAD verification, an attacker could send forged packets with high nonces to advance the window, causing legitimate packets to be rejected as "replays". This would be a trivial DoS attack.
+
+The `is_definite_replay()` check MUST be read-only:
+- Nonce below window floor → reject (definite replay)
+- Nonce in window bitmap → reject (already seen)
+- Nonce above window → **pass through** (might be valid, verify first)
+
+Only `mark_seen()` advances the window, and only for authenticated packets.
 
 ### Epoch Protection
 

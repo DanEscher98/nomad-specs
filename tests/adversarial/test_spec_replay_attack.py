@@ -459,6 +459,57 @@ class TestDoSResistance:
         # All should be caught at replay check
         assert processor.replay_rejections == 100
 
+    def test_forged_high_nonce_does_not_advance_window(
+        self, processor: SecureFrameProcessor
+    ) -> None:
+        """CRITICAL: Forged packet with high nonce must NOT advance replay window.
+
+        Attack scenario:
+        1. Attacker sends forged packet with nonce = 2^60 (invalid AEAD)
+        2. If window advances before AEAD check, all nonces < 2^60 - 2048 rejected
+        3. Legitimate packets would be falsely rejected as "replays"
+        4. Result: Trivial DoS attack
+
+        Defense: Window ONLY advances after AEAD verification succeeds.
+        """
+        # Establish some valid frames first
+        for i in range(10):
+            nonce = construct_nonce(processor.epoch, processor.direction, i)
+            aad = b"\x03\x00" + b"\x00" * 14
+            ciphertext = xchacha20_poly1305_encrypt(processor.key, nonce, b"test", aad)
+            assert processor.process_frame(i, ciphertext, aad)
+
+        # Record window state before attack
+        window_before = processor.window.highest_seen
+        assert window_before == 9  # Last valid nonce was 9
+
+        # ATTACK: Send forged packet with very high nonce
+        # This packet has invalid AEAD (random ciphertext)
+        forged_nonce = 2**60  # Astronomically high
+        forged_aad = b"\x03\x00" + b"\x00" * 14
+        forged_ciphertext = b"\xff" * 48  # Invalid ciphertext
+
+        # Process forged frame - should fail AEAD
+        result = processor.process_frame(forged_nonce, forged_ciphertext, forged_aad)
+        assert not result  # Frame rejected
+        assert processor.aead_failures == 1
+
+        # CRITICAL CHECK: Window must NOT have advanced
+        assert processor.window.highest_seen == window_before, (
+            "VULNERABILITY: Forged packet advanced replay window!\n"
+            f"Window was {window_before}, now {processor.window.highest_seen}\n"
+            "This enables trivial DoS attack via forged high-nonce packets."
+        )
+
+        # Verify legitimate packets still work
+        next_valid = 10
+        nonce = construct_nonce(processor.epoch, processor.direction, next_valid)
+        aad = b"\x03\x00" + b"\x00" * 14
+        ciphertext = xchacha20_poly1305_encrypt(processor.key, nonce, b"test", aad)
+        assert processor.process_frame(next_valid, ciphertext, aad), (
+            "Legitimate packet rejected after forged attack!"
+        )
+
 
 # =============================================================================
 # Property-Based Tests
