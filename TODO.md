@@ -25,6 +25,16 @@
 - [x] Add formal verification references to specs (1-SECURITY.md, 2-TRANSPORT.md, 3-SYNC.md)
 - [ ] Add "Formal Verification" section to arXiv paper (coordinate with t9-paper)
 
+### Security Audit (elevated scope)
+- [x] Run all ProVerif models and verify
+- [x] Run all TLA+ models and verify
+- [x] Fix model bugs (syntax errors, invariant issues)
+- [x] Document PCS limitation finding (HIGH severity)
+- [x] Create SECURITY_FINDINGS.md report
+- [x] Add Justfile commands for formal verification
+- [x] Update README with installation instructions
+- [ ] Add identity hiding query to handshake (P1 future work)
+
 ## Notes
 <!-- Context from brain -->
 Security properties to verify (from 1-SECURITY.md):
@@ -53,8 +63,9 @@ Sync properties to verify (from 3-SYNC.md):
 - `formal/tlaplus/Roaming.tla` - Connection migration
 
 **Documentation:**
-- `formal/README.md` - Main documentation
+- `formal/README.md` - Main documentation (updated with installation instructions)
 - `formal/CROSS_VALIDATION.md` - Test vector correspondence
+- `formal/SECURITY_FINDINGS.md` - Security audit report with PCS limitation
 
 ## Blocked
 
