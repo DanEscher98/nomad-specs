@@ -183,8 +183,13 @@ class TestForgedFrameInjection:
             )
 
 
+@pytest.mark.scapy_attack
 class TestInjectionWithAttacker:
-    """Tests using the MITMAttacker injection functionality."""
+    """Tests using the MITMAttacker injection functionality.
+
+    Requires: test-runner container with NET_RAW capability.
+    Run with: just docker-test-runner -m scapy_attack adversarial/
+    """
 
     @pytest.fixture
     def codec(self) -> NomadCodec:

@@ -255,8 +255,13 @@ class TestSessionEnumeration:
             codec.parse_data_frame(fake_frame, real_key, 0, 0)
 
 
+@pytest.mark.scapy_attack
 class TestSessionProbeAttacks:
-    """Tests using the SessionProbe for enumeration attacks."""
+    """Tests using the SessionProbe for enumeration attacks.
+
+    Requires: test-runner container with NET_RAW capability.
+    Run with: just docker-test-runner -m scapy_attack adversarial/
+    """
 
     @pytest.fixture
     def codec(self) -> NomadCodec:

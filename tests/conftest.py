@@ -421,6 +421,10 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "network: tests requiring network access")
     config.addinivalue_line("markers", "adversarial: security/fuzzing tests")
     config.addinivalue_line("markers", "interop: cross-implementation tests")
+    config.addinivalue_line(
+        "markers",
+        "scapy_attack: tests requiring scapy/NET_RAW (run inside test-runner container)",
+    )
 
 
 def pytest_collection_modifyitems(config, items):
@@ -437,11 +441,22 @@ def pytest_collection_modifyitems(config, items):
         docker_available = False
 
     skip_docker = pytest.mark.skip(reason="Docker not available")
+    skip_scapy = pytest.mark.skip(
+        reason="scapy_attack tests skipped by default (run with -m scapy_attack)"
+    )
+
+    # Check if scapy_attack marker was explicitly requested
+    markexpr = config.getoption("-m", default="")
+    scapy_explicitly_requested = "scapy_attack" in markexpr
 
     for item in items:
         # Skip container tests if Docker unavailable
         if not docker_available and "container" in item.keywords:
             item.add_marker(skip_docker)
+
+        # Skip scapy_attack tests unless explicitly requested
+        if not scapy_explicitly_requested and "scapy_attack" in item.keywords:
+            item.add_marker(skip_scapy)
 
 
 def pytest_report_header(config):
