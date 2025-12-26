@@ -33,11 +33,11 @@ from lib.reference import (
 # =============================================================================
 
 
-REKEY_AFTER_TIME_SECONDS = 120  # 2 minutes
-REKEY_AFTER_MESSAGES = 2**60  # Initiate rekey after this many frames
-REJECT_AFTER_TIME_SECONDS = 180  # 3 minutes - hard limit
+REKEY_AFTER_TIME_SECONDS = 3600  # 1 hour
+REKEY_AFTER_MESSAGES = 2**32  # ~4 billion frames
+REJECT_AFTER_TIME_SECONDS = 3660  # REKEY + 60s grace period
 REJECT_AFTER_MESSAGES = 2**64 - 1  # HARD LIMIT - must terminate
-OLD_KEY_RETENTION_SECONDS = 5  # Keep old keys briefly for late packets
+OLD_KEY_RETENTION_SECONDS = 30  # Minimum retention (adaptive: max(5×SRTT, 30s))
 
 MAX_EPOCH = 2**32 - 1  # Maximum epoch value before session termination
 
@@ -218,45 +218,45 @@ class TestRekeyTiming:
     """Test rekeying timing requirements."""
 
     def test_rekey_after_time_constant(self) -> None:
-        """REKEY_AFTER_TIME is 120 seconds (2 minutes)."""
-        assert REKEY_AFTER_TIME_SECONDS == 120
+        """REKEY_AFTER_TIME is 3600 seconds (1 hour)."""
+        assert REKEY_AFTER_TIME_SECONDS == 3600
 
     def test_reject_after_time_constant(self) -> None:
-        """REJECT_AFTER_TIME is 180 seconds (3 minutes)."""
-        assert REJECT_AFTER_TIME_SECONDS == 180
+        """REJECT_AFTER_TIME is 3660 seconds (REKEY + 60s grace)."""
+        assert REJECT_AFTER_TIME_SECONDS == 3660
 
     def test_old_key_retention_constant(self) -> None:
-        """OLD_KEY_RETENTION is 5 seconds."""
-        assert OLD_KEY_RETENTION_SECONDS == 5
+        """OLD_KEY_RETENTION minimum is 30 seconds."""
+        assert OLD_KEY_RETENTION_SECONDS == 30
 
     def test_no_rekey_before_timeout(self, session_state: SessionState) -> None:
         """No rekey needed before REKEY_AFTER_TIME."""
-        # 60 seconds have passed - not enough for rekey
-        current_time = 60
+        # 1800 seconds (30 min) have passed - not enough for rekey
+        current_time = 1800
         assert not should_rekey(session_state, current_time)
 
     def test_rekey_after_timeout(self, session_state: SessionState) -> None:
         """Rekey needed after REKEY_AFTER_TIME."""
-        # 120 seconds have passed - should rekey
-        current_time = 120
+        # 3600 seconds have passed - should rekey
+        current_time = 3600
         assert should_rekey(session_state, current_time)
 
     def test_rekey_well_after_timeout(self, session_state: SessionState) -> None:
         """Rekey needed when well past timeout."""
-        # 200 seconds have passed
-        current_time = 200
+        # 4000 seconds have passed
+        current_time = 4000
         assert should_rekey(session_state, current_time)
 
     def test_no_reject_before_hard_limit(self, session_state: SessionState) -> None:
         """Keys not rejected before REJECT_AFTER_TIME."""
-        # 150 seconds - past soft limit but before hard limit
-        current_time = 150
+        # 3630 seconds - past soft limit but before hard limit
+        current_time = 3630
         assert not should_reject_key(session_state, current_time)
 
     def test_reject_at_hard_limit(self, session_state: SessionState) -> None:
         """Keys rejected at REJECT_AFTER_TIME."""
-        # 180 seconds - at hard limit
-        current_time = 180
+        # 3660 seconds - at hard limit
+        current_time = 3660
         assert should_reject_key(session_state, current_time)
 
 
@@ -269,8 +269,8 @@ class TestRekeyMessageCount:
     """Test message count based rekeying."""
 
     def test_rekey_after_messages_constant(self) -> None:
-        """REKEY_AFTER_MESSAGES is 2^60."""
-        assert REKEY_AFTER_MESSAGES == 2**60
+        """REKEY_AFTER_MESSAGES is 2^32 (~4 billion)."""
+        assert REKEY_AFTER_MESSAGES == 2**32
 
     def test_reject_after_messages_constant(self) -> None:
         """REJECT_AFTER_MESSAGES is 2^64 - 1."""
@@ -288,7 +288,7 @@ class TestRekeyMessageCount:
         """Rekey needed at REKEY_AFTER_MESSAGES threshold."""
         state = SessionState(
             session_id=b"\x00" * 6,
-            send_nonce=2**60,  # At threshold
+            send_nonce=2**32,  # At threshold
         )
         assert should_rekey(state, current_time=0)
 
@@ -319,7 +319,7 @@ class TestEpochManagement:
             session_state,
             new_send_key=b"\x01" * 32,
             new_recv_key=b"\x02" * 32,
-            current_time=120,
+            current_time=3600,
         )
         assert new_state.epoch == 1
 
@@ -331,7 +331,7 @@ class TestEpochManagement:
                 state,
                 new_send_key=deterministic_bytes(f"send-{i}", 32),
                 new_recv_key=deterministic_bytes(f"recv-{i}", 32),
-                current_time=120 * (i + 1),
+                current_time=3600 * (i + 1),
             )
             assert state.epoch == i + 1
 
@@ -369,7 +369,7 @@ class TestNonceCounterReset:
             session_state,
             new_send_key=b"\x01" * 32,
             new_recv_key=b"\x02" * 32,
-            current_time=120,
+            current_time=3600,
         )
 
         assert new_state.send_nonce == 0
@@ -389,7 +389,7 @@ class TestNonceCounterReset:
             session_state,
             new_send_key=b"\x01" * 32,
             new_recv_key=b"\x02" * 32,
-            current_time=120,
+            current_time=3600,
         )
 
         nonce_after = construct_nonce(
@@ -419,7 +419,7 @@ class TestOldKeyRetention:
             session_state,
             new_send_key=b"\x01" * 32,
             new_recv_key=b"\x02" * 32,
-            current_time=120,
+            current_time=3600,
         )
 
         assert new_state.old_send_key == old_send
@@ -427,7 +427,7 @@ class TestOldKeyRetention:
 
     def test_old_key_expiry_set(self, session_state: SessionState) -> None:
         """Old key expiry is set to current_time + retention."""
-        current_time = 120
+        current_time = 3600
         new_state = perform_rekey(
             session_state,
             new_send_key=b"\x01" * 32,
@@ -447,7 +447,7 @@ class TestOldKeyRetention:
             session_state,
             new_send_key=new_send,
             new_recv_key=new_recv,
-            current_time=120,
+            current_time=3600,
         )
 
         assert new_state.send_key == new_send
@@ -546,7 +546,7 @@ class TestPostRekeyKeyDerivation:
             session_state,
             new_send_key=deterministic_bytes("new-send", 32),
             new_recv_key=deterministic_bytes("new-recv", 32),
-            current_time=120,
+            current_time=3600,
         )
 
         assert new_state.send_key != session_state.send_key
@@ -554,7 +554,7 @@ class TestPostRekeyKeyDerivation:
 
     def test_rekey_timestamp_updated(self, session_state: SessionState) -> None:
         """Last rekey timestamp is updated."""
-        current_time = 120
+        current_time = 3600
         new_state = perform_rekey(
             session_state,
             new_send_key=b"\x01" * 32,
@@ -619,8 +619,8 @@ class TestRekeyIntegration:
 
     def test_full_rekey_flow(self, session_state: SessionState, codec: NomadCodec) -> None:
         """Complete rekey flow: detect -> initiate -> complete."""
-        # 1. Session runs for 120 seconds
-        current_time = 120
+        # 1. Session runs for 3600 seconds (1 hour)
+        current_time = 3600
         assert should_rekey(session_state, current_time)
 
         # 2. Generate new ephemeral keypair

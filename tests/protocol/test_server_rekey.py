@@ -3,7 +3,7 @@ E2E Rekeying Tests - Tests against real Rust implementation.
 
 These tests verify rekeying behavior with the actual server.
 
-Note: Full rekey testing requires waiting REKEY_AFTER_TIME (120 seconds).
+Note: Full rekey testing requires waiting REKEY_AFTER_TIME (3600 seconds / 1 hour).
 These tests focus on:
 - Session longevity (no premature termination)
 - Rekey frame handling (if implemented)
@@ -41,9 +41,9 @@ PROTOCOL_VERSION = 0x0001
 SESSION_ID_SIZE = 6
 
 # Timing constants (from spec)
-REKEY_AFTER_TIME_SECONDS = 120
-REJECT_AFTER_TIME_SECONDS = 180
-OLD_KEY_RETENTION_SECONDS = 5
+REKEY_AFTER_TIME_SECONDS = 3600  # 1 hour
+REJECT_AFTER_TIME_SECONDS = 3660  # REKEY + 60s grace
+OLD_KEY_RETENTION_SECONDS = 30  # Minimum (adaptive: max(5×SRTT, 30s))
 
 # Well-known test keys
 SERVER_PUBLIC_KEY = base64.b64decode("gqNRjwG8OsClvG2vWuafYeERaM95Pk0rTLmFAjh6JDo=")
@@ -455,14 +455,14 @@ class TestE2EForwardSecrecyProperties:
         """Document forward secrecy requirements from spec.
 
         Per spec section "Rekeying (Type 0x04)":
-        - REKEY_AFTER_TIME = 120 seconds
-        - REKEY_AFTER_MESSAGES = 2^60 frames
-        - REJECT_AFTER_TIME = 180 seconds (hard limit)
-        - OLD_KEY_RETENTION = 5 seconds
+        - REKEY_AFTER_TIME = 3600 seconds (1 hour)
+        - REKEY_AFTER_MESSAGES = 2^32 frames (~4 billion)
+        - REJECT_AFTER_TIME = 3660 seconds (REKEY + 60s grace)
+        - OLD_KEY_RETENTION = 30 seconds minimum (adaptive)
         """
-        assert REKEY_AFTER_TIME_SECONDS == 120
-        assert REJECT_AFTER_TIME_SECONDS == 180
-        assert OLD_KEY_RETENTION_SECONDS == 5
+        assert REKEY_AFTER_TIME_SECONDS == 3600
+        assert REJECT_AFTER_TIME_SECONDS == 3660
+        assert OLD_KEY_RETENTION_SECONDS == 30
 
     def test_session_keys_derived_per_session(
         self,
