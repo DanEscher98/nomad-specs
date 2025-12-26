@@ -28,6 +28,8 @@ dependencies = [
     # Utilities
     "attrs>=23.0",
     "structlog>=24.0",
+    # Compression (for extension tests)
+    "zstandard>=0.22",
 ]
 
 [project.optional-dependencies]
