@@ -21,18 +21,11 @@ Tests are named by **infrastructure required** (prefix), not by what they test (
 
 ## Active Tentacles
 
-| ID | Description | Worktree | Status |
-|----|-------------|----------|--------|
-| t4-extensions | Extension mechanism tests | `.worktrees/t4-extensions` | 🔄 Active |
-
-Launch with:
-```bash
-cd .worktrees/t4-extensions && claude
-```
+None - all merged.
 
 ## Pending Tentacles
 
-None - all spawned.
+None.
 
 ## Completed Tentacles
 
@@ -45,6 +38,7 @@ None - all spawned.
 | t2-transport | b3c79c6 | ✅ | ✅ | 🔲 | Transport layer, wire/keepalive/roaming |
 | t7-resilience | 118fa14 | N/A | N/A | 🔲 | Network resilience (chaos, latency, packet loss) |
 | t8-adversarial | b91c742 | ✅ | ✅ | N/A | Security adversarial, replay attacks |
+| t4-extensions | 42128a9 | ✅ | N/A | N/A | Extension mechanism, TLV encoding, compression (83 tests) |
 
 ---
 
