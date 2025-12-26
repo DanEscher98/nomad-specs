@@ -50,7 +50,7 @@ Prepare the NOMAD Protocol for arXiv publication. Create a professional academic
 
 ### Phase 5: arXiv Prep
 - [x] Bibliography (BibTeX)
-- [ ] Author affiliations
+- [x] Author affiliations
 - [ ] License selection (CC BY)
 - [ ] Abstract metadata for arXiv submission
 
@@ -90,10 +90,14 @@ Prepare the NOMAD Protocol for arXiv publication. Create a professional academic
 
 ## Notes from Tentacle
 
-**Phase 5 remaining items require human input:**
-- Author affiliations: Real author names and institutions needed
-- License selection: Author must confirm CC BY license
-- arXiv metadata: Requires arXiv account and submission form
+**Author info added:**
+- Danyiel Colin (Independent Researcher)
+- amaniel2718@protonmail.com
+- Rust implementation: https://crates.io/crates/nomad-protocol
+
+**Remaining items:**
+- License selection: Confirm CC BY license for arXiv
+- arXiv metadata: Complete submission form on arXiv.org
 
 **Paper status:**
 - nomad.tex: Complete 7-page paper with all sections
