@@ -88,5 +88,21 @@ Prepare the NOMAD Protocol for arXiv publication. Create a professional academic
 ## Blocked
 <!-- If scope exceeded, document here and STOP -->
 
+## Notes from Tentacle
+
+**Phase 5 remaining items require human input:**
+- Author affiliations: Real author names and institutions needed
+- License selection: Author must confirm CC BY license
+- arXiv metadata: Requires arXiv account and submission form
+
+**Paper status:**
+- nomad.tex: Complete 7-page paper with all sections
+- references.bib: 12 entries covering all cited works
+- figures/*.mmd: 5 Mermaid diagrams ready for conversion
+- nomad.pdf: Compiles successfully with pdflatex/bibtex
+- Target: arXiv cs.NI (Networking and Internet Architecture)
+
+To compile: `cd paper && make pdf`
+
 ---
 *Auto-generated from .octopus/master-todo.md*
