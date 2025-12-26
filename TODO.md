@@ -58,6 +58,15 @@ Prepare the NOMAD Protocol for arXiv publication. Create a professional academic
 - [x] Constants mapping document (all constants, rationale, external refs)
 - [x] Annotated bibliography (why each reference is relevant)
 
+### Phase 7: Formal Verification Section (NEW - from t11-formal)
+- [ ] Add "Formal Verification" section to paper (~1 page)
+- [ ] Describe ProVerif security proofs (handshake, replay, forward secrecy)
+- [ ] Describe TLA+ state machine verification (sync, rekey, roaming)
+- [ ] **Document PCS finding and fix** (rekey_auth_key) - this is a KEY contribution
+- [ ] Add ProVerif/Tamarin references to bibliography
+- [ ] Update abstract to mention "formally verified"
+- [ ] Reference formal/ directory for full models
+
 ---
 
 ## Key Contributions to Highlight
@@ -67,6 +76,7 @@ Prepare the NOMAD Protocol for arXiv publication. Create a professional academic
 3. **Roaming without reconnection**: Session ID continuity across IP changes
 4. **Idempotent state diffs**: Convergence despite packet loss/reorder
 5. **Conformance test suite**: 700+ tests, reference codec, test vectors
+6. **Formal verification with PCS fix**: ProVerif found MITM attack, fixed with `rekey_auth_key` ← NEW!
 
 ---
 
