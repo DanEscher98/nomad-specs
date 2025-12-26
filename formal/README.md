@@ -161,6 +161,7 @@ java -cp ~/.local/lib/tlaplus/tla2tools.jar tlc2.TLC -h
 |------|--------|------------|
 | `SyncLayer.tla` | State synchronization | Eventual consistency, idempotent diffs, monotonic versions |
 | `RekeyStateMachine.tla` | Session rekeying | Key rotation, epoch management, counter limits |
+| `SlidingWindow.tla` | Anti-replay window | DoS resistance, ordering invariants, window bounds |
 | `Roaming.tla` | Connection migration | Session survival, anti-amplification, spoof prevention |
 
 ### Running
@@ -246,6 +247,15 @@ PROPERTIES
 | NonceUniqueness | Safety | Nonces never reused within epoch |
 | RekeyEventuallyHappens | Liveness | Rekeying occurs before limits reached |
 
+#### Sliding Window (`SlidingWindow.tla`)
+
+| Property | Type | Description |
+|----------|------|-------------|
+| OnlyAuthenticatedMarkedSeen | Security | Only AEAD-verified nonces enter window |
+| WindowBounded | Safety | Window size never exceeds limit |
+| FloorEnforced | Safety | Nonces below floor always rejected |
+| AttackerCannotAdvanceWindow | Security | Forged packets cannot cause DoS |
+
 #### Roaming (`Roaming.tla`)
 
 | Property | Type | Description |
@@ -261,7 +271,7 @@ PROPERTIES
 |--------------|----------------|-----------|
 | 1-SECURITY.md §Handshake | `nomad_handshake.pv` | - |
 | 1-SECURITY.md §Rekeying | `nomad_rekey.pv` | `RekeyStateMachine.tla` |
-| 1-SECURITY.md §Anti-Replay | `nomad_replay.pv` | - |
+| 1-SECURITY.md §Anti-Replay | `nomad_replay.pv` | `SlidingWindow.tla` |
 | 2-TRANSPORT.md §Roaming | - | `Roaming.tla` |
 | 3-SYNC.md §Convergence | - | `SyncLayer.tla` |
 

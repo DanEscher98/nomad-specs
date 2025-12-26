@@ -250,18 +250,28 @@ def update_rtt(sample):
 
 ---
 
-## Frame Pacing
+## Frame Pacing and Congestion Avoidance
 
-To prevent buffer bloat and network congestion, implementations MUST pace frame transmission.
+NOMAD is designed for interactive applications with low bandwidth requirements
+(typically < 100 Kbps). The pacing strategy prioritizes latency over throughput.
+
+### Design Rationale
+
+Per RFC 8085 (UDP Usage Guidelines), applications using UDP SHOULD implement
+congestion control. NOMAD's approach:
+
+1. **Rate limiting**: Hard cap at 50 Hz prevents network flooding
+2. **RTT-adaptive pacing**: `MIN_FRAME_INTERVAL = max(SRTT/2, 20ms)` backs off under congestion
+3. **Batching**: `COLLECTION_INTERVAL = 8ms` reduces frame count without adding latency
 
 ### Timing Constants
 
-| Constant | Value | Description |
-|----------|-------|-------------|
-| `MIN_FRAME_INTERVAL` | `max(SRTT/2, 20ms)` | Minimum time between frames |
-| `COLLECTION_INTERVAL` | 8 ms | Wait after state change before sending |
-| `DELAYED_ACK_TIMEOUT` | 100 ms | Max time to delay ack-only frame |
-| `MAX_FRAME_RATE` | 50 Hz | Hard cap on frame rate |
+| Constant | Value | Rationale |
+|----------|-------|-----------|
+| `MIN_FRAME_INTERVAL` | max(SRTT/2, 20ms) | Scales with network conditions |
+| `COLLECTION_INTERVAL` | 8 ms | Batch rapid state changes |
+| `DELAYED_ACK_TIMEOUT` | 100 ms | Piggyback acks on data frames |
+| `MAX_FRAME_RATE` | 50 Hz | Hard cap; typical interactive apps need < 30 Hz |
 
 ### Frame Pacing Algorithm
 
@@ -297,6 +307,16 @@ def maybe_send_frame():
 - **Collection interval**: Batches rapid state changes (e.g., fast typing) into single frames
 - **Delayed ACK**: 99.9% of acks piggyback on data frames (Mosh measurement)
 - **50 Hz cap**: Human perception threshold; faster updates waste bandwidth
+
+### Limitations
+
+NOMAD does NOT implement:
+- AIMD (additive-increase/multiplicative-decrease)
+- Explicit congestion notification (ECN)
+- Bandwidth probing
+
+For applications requiring high throughput or competing fairly with TCP,
+consider using QUIC or implementing application-layer congestion control.
 
 ---
 
@@ -399,15 +419,12 @@ See `formal/README.md` for instructions on running the verification tools.
 
 ## Test Mapping
 
-| Spec Section | Test File |
-|--------------|-----------|
-| Data frame format | `tests/wire/test_wire_format.py` |
-| Frame parsing | `tests/unit/test_frame_encoding.py` |
-| Connection migration | `tests/protocol/test_roaming.py` |
-| Anti-amplification | `tests/adversarial/test_amplification.py` |
-| RTT estimation | `tests/protocol/test_rtt_estimation.py` |
-| Frame pacing | `tests/protocol/test_frame_pacing.py` |
-| Retransmission | `tests/protocol/test_retransmission.py` |
-| Timeout handling | `tests/protocol/test_timeout_handling.py` |
-| MTU compliance | `tests/wire/test_packet_sizes.py` |
-| Error handling | `tests/adversarial/test_malformed_packets.py` |
+| Spec Section | Test File(s) |
+|--------------|--------------|
+| Data frame format | `test_spec_frame_encode.py`, `test_spec_frame_decode.py` |
+| Frame types | `test_spec_frame_types.py` |
+| Connection migration | `test_spec_roaming.py`, `test_server_roaming.py` |
+| Anti-amplification | `test_server_amplification.py` |
+| Keepalive | `test_spec_keepalive.py`, `test_server_keepalive.py` |
+| E2E roaming | `test_e2e_roaming.py` |
+| E2E keepalive | `test_e2e_keepalive.py` |

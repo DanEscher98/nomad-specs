@@ -11,11 +11,11 @@
  *   5. Counter exhaustion triggers session termination
  *
  * SPEC CONSTANTS (1-SECURITY.md §Rekeying - Round 2 update):
- *   - REKEY_AFTER_TIME: 3600 seconds (1 hour, was 120s in Round 1)
- *   - REJECT_AFTER_TIME: 3660 seconds (1 hour + 1 minute buffer)
- *   - REKEY_AFTER_MESSAGES: 2^32 (was 2^60 in Round 1)
+ *   - REKEY_AFTER_TIME: 300 seconds (5 min) - tight forward secrecy window
+ *   - REJECT_AFTER_TIME: 360 seconds (6 min) - REKEY + 60s grace period
+ *   - REKEY_AFTER_MESSAGES: 2^32 (~4 billion frames)
  *   - REJECT_AFTER_MESSAGES: 2^64-1 (hard limit, MUST terminate)
- *   - OLD_KEY_RETENTION: adaptive max(5×SRTT, 30s) (was fixed 5s)
+ *   - OLD_KEY_RETENTION: adaptive max(5×SRTT, 30s)
  *   - MAX_EPOCH: 2^32-1 (epoch exhaustion terminates session)
  *
  * MODEL BOUNDS (for tractable verification):
@@ -26,8 +26,8 @@
 EXTENDS Integers, Sequences, FiniteSets
 
 CONSTANTS
-    REKEY_AFTER_TIME,       \* Initiate rekey after this time (spec: 3600s)
-    REJECT_AFTER_TIME,      \* Hard limit, reject old keys (spec: 3660s)
+    REKEY_AFTER_TIME,       \* Initiate rekey after this time (spec: 300s)
+    REJECT_AFTER_TIME,      \* Hard limit, reject old keys (spec: 360s)
     OLD_KEY_RETENTION,      \* Keep old keys after rekey (spec: max(5×SRTT, 30s))
     MAX_EPOCH,              \* Maximum epoch number before termination (spec: 2^32-1)
     REKEY_AFTER_MESSAGES,   \* Soft message limit for rekey (spec: 2^32)

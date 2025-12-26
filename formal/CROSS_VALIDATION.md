@@ -172,6 +172,22 @@ cd tests && pytest unit/ -v
 # - Test vectors should all pass
 ```
 
+## Test Vector Hashes
+
+For reproducibility and auditability, the SHA256 hashes of test vectors are recorded below.
+If vectors are updated, regenerate hashes with: `sha256sum tests/vectors/*.json5`
+
+| File | SHA256 |
+|------|--------|
+| `aead_vectors.json5` | `6087f96d929fd12ac61712babc689ba5ccf746a8c4a983065e6954a50979a3ff` |
+| `frame_vectors.json5` | `004943955559564898a60aa7ffc2f76b55055d5d21a0e590b007a19db2294364` |
+| `handshake_vectors.json5` | `38eaef664fedaf20c76078e658861e4c54a1d589508b5e23bb0cdda177e136cf` |
+| `nonce_vectors.json5` | `65fa0bb6fb63931435bdc8009bf3bc53a4ead6d9373f548fa2bf2277f456ecb9` |
+| `rekey_vectors.json5` | `03434c33a3f76206b6355404cfea665da41c20e0ce2407aa025dc0ec669d29ab` |
+| `sync_vectors.json5` | `a13d7a09f98f55188e948e29751af8d0d204519b901857b1eb2ba1d473f63da2` |
+
+*Last updated: 2025-12-26*
+
 ## Conclusion
 
 The formal models are structurally consistent with test vectors:

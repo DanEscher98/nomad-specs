@@ -256,6 +256,8 @@ formal-tlaplus: _check-tlaplus
     java -XX:+UseParallelGC -cp ~/.local/lib/tlaplus/tla2tools.jar tlc2.TLC \
         -config formal/tlaplus/SyncLayer.cfg formal/tlaplus/SyncLayer.tla
     java -XX:+UseParallelGC -cp ~/.local/lib/tlaplus/tla2tools.jar tlc2.TLC \
+        -config formal/tlaplus/SlidingWindow.cfg formal/tlaplus/SlidingWindow.tla
+    java -XX:+UseParallelGC -cp ~/.local/lib/tlaplus/tla2tools.jar tlc2.TLC \
         -config formal/tlaplus/Roaming.cfg formal/tlaplus/Roaming.tla
     @echo "TLA+ verification complete"
 
@@ -271,6 +273,10 @@ formal-tlaplus-sync: _check-tlaplus
 formal-tlaplus-roaming: _check-tlaplus
     java -XX:+UseParallelGC -cp ~/.local/lib/tlaplus/tla2tools.jar tlc2.TLC \
         -config formal/tlaplus/Roaming.cfg formal/tlaplus/Roaming.tla
+
+formal-tlaplus-window: _check-tlaplus
+    java -XX:+UseParallelGC -cp ~/.local/lib/tlaplus/tla2tools.jar tlc2.TLC \
+        -config formal/tlaplus/SlidingWindow.cfg formal/tlaplus/SlidingWindow.tla
 
 # Check all formal verification dependencies
 _check-formal-deps: _check-proverif _check-tlaplus

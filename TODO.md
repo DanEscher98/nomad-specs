@@ -18,34 +18,40 @@ Latest specs have been synced with clarifications from paper feedback (Round 2).
 
 ### ProVerif
 
-- [ ] Extract key queries to include in paper appendix
-- [ ] Document adversary model assumptions in nomad_rekey_fixed.pv
-- [ ] Add comments mapping model to spec sections
-- [ ] Verify explicit PCS threat model matches spec:
+- [x] Extract key queries to include in paper appendix (PAPER_APPENDIX_QUERIES.md)
+- [x] Document adversary model assumptions in nomad_rekey_fixed.pv
+- [x] Add comments mapping model to spec sections
+- [x] Verify explicit PCS threat model matches spec:
   - Assumed compromised: session keys, ephemeral keys, epoch N traffic
   - Assumed uncompromised: static keys, rekey_auth_key
 
 ### TLA+
 
-- [ ] Add SyncLayer convergence proof sketch (informal)
-- [ ] Document fairness assumptions for liveness
-- [ ] Add idempotence property to SyncLayer model
-- [ ] Add sliding window algorithm model (verify anti-replay)
+- [x] Add SyncLayer convergence proof sketch (informal)
+- [x] Document fairness assumptions for liveness
+- [x] Add idempotence property to SyncLayer model
+- [x] Add sliding window algorithm model (verify anti-replay) - SlidingWindow.tla
 
 ### Cross-Validation
 
-- [ ] Update CROSS_VALIDATION.md with new test vector hashes
-- [ ] Verify formal models match updated spec constants:
-  - REKEY_AFTER_TIME: 3600s (was 120s)
+- [x] Update CROSS_VALIDATION.md with new test vector hashes
+- [x] Verify formal models match updated spec constants:
+  - REKEY_AFTER_TIME: 300s / 5 min (was 120s)
+  - REJECT_AFTER_TIME: 360s / 6 min (REKEY + 60s grace)
   - REKEY_AFTER_MESSAGES: 2^32 (was 2^60)
   - OLD_KEY_RETENTION: adaptive max(5×SRTT, 30s)
-- [ ] Document model bounds and their implications
+- [x] Document model bounds and their implications - MODELING_ASSUMPTIONS.md
+
+**NOTE**: 5-minute rekey interval chosen as middle ground:
+- More practical than 2 min (Mosh) - 60% fewer rekeys
+- Tighter forward secrecy than 1 hour - ≤5 min exposure window
+- Matches typical interactive work unit duration
 
 ### Documentation
 
-- [ ] Add example ProVerif output to formal/README.md
-- [ ] Add example TLC output to formal/README.md
-- [ ] Create MODELING_ASSUMPTIONS.md listing all simplifications
+- [x] Add example ProVerif output to formal/README.md
+- [x] Add example TLC output to formal/README.md
+- [x] Create MODELING_ASSUMPTIONS.md listing all simplifications
 
 ## Updated Specs Available
 
@@ -53,7 +59,7 @@ The following specs have been clarified based on paper feedback (Round 2):
 
 ### specs/1-SECURITY.md (Round 2)
 - PCS explicit adversary model (assumed compromised/uncompromised)
-- Rekeying parameters updated (3600s, 2^32, adaptive OLD_KEY_RETENTION)
+- Rekeying parameters updated (300s/5min, 2^32, adaptive OLD_KEY_RETENTION)
 - Anti-replay sliding window algorithm pseudo-code
 - Nonce "Reserved" field (renamed from "Zeros")
 

@@ -35,8 +35,6 @@ from typing import Any
 # Check dependencies
 try:
     from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
-    from cryptography.hazmat.primitives.kdf.hkdf import HKDFExpand
-    from cryptography.hazmat.primitives import hashes
     from nacl.bindings import (
         crypto_scalarmult,
         crypto_scalarmult_base,
@@ -121,14 +119,56 @@ def deterministic_bytes(seed: str, length: int) -> bytes:
 # =============================================================================
 
 
+def hkdf_extract_blake2s(salt: bytes, ikm: bytes) -> bytes:
+    """HKDF-Extract using BLAKE2s keyed mode.
+
+    Per SECURITY.md: NOMAD uses HKDF (RFC 5869) instantiated with BLAKE2s.
+    BLAKE2s keyed mode replaces HMAC in standard HKDF construction.
+    """
+    if not salt:
+        salt = b"\x00" * 32  # Default to zero-filled salt
+    # BLAKE2s max key size is 32 bytes, compress if needed
+    if len(salt) > 32:
+        salt = hashlib.blake2s(salt, digest_size=32).digest()
+    return hashlib.blake2s(ikm, key=salt, digest_size=32).digest()
+
+
+def hkdf_expand_blake2s(prk: bytes, info: bytes, length: int) -> bytes:
+    """HKDF-Expand using BLAKE2s keyed mode.
+
+    T(0) = empty string
+    T(i) = BLAKE2s-keyed(PRK, T(i-1) || info || i)
+    OKM = first L bytes of T(1) || T(2) || ...
+    """
+    import math
+    if len(prk) != 32:
+        raise ValueError(f"PRK must be 32 bytes for BLAKE2s, got {len(prk)}")
+
+    hash_len = 32  # BLAKE2s output
+    n = math.ceil(length / hash_len)
+    if n > 255:
+        raise ValueError(f"HKDF-Expand: requested length {length} too large")
+
+    okm = b""
+    t = b""
+    for i in range(1, n + 1):
+        h = hashlib.blake2s(t + info + bytes([i]), key=prk, digest_size=32)
+        t = h.digest()
+        okm += t
+
+    return okm[:length]
+
+
 def hkdf_expand(prk: bytes, info: bytes, length: int) -> bytes:
-    """HKDF-Expand using SHA-256."""
-    hkdf = HKDFExpand(
-        algorithm=hashes.SHA256(),
-        length=length,
-        info=info,
-    )
-    return hkdf.derive(prk)
+    """HKDF-Expand using BLAKE2s (per SECURITY.md §HKDF Construction).
+
+    If PRK is longer than 32 bytes (e.g., ephemeral_dh || rekey_auth_key),
+    first compress it through HKDF-Extract to get a 32-byte PRK.
+    """
+    if len(prk) > 32:
+        # Compress through extract step to get valid 32-byte PRK
+        prk = hkdf_extract_blake2s(b"", prk)
+    return hkdf_expand_blake2s(prk, info, length)
 
 
 def derive_session_keys(handshake_hash: bytes) -> tuple[bytes, bytes]:

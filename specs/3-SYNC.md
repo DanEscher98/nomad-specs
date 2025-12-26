@@ -27,6 +27,52 @@ This is the foundation of NOMAD's reliability over unreliable UDP:
 
 ---
 
+## Idempotent Diff Semantics
+
+### Formal Definition
+
+A diff function `d: State × State → Diff` with application function `a: State × Diff → State`
+is **idempotent** if for all states s and diffs d:
+
+```
+a(a(s, d), d) = a(s, d)
+```
+
+NOMAD's convergence theorem additionally requires:
+- **Version monotonicity**: Higher version numbers always supersede lower ones
+- **Base-independence**: Receiver applies diff to reach `sender_state_num`, regardless of `base_state_num`
+
+### Allowed Diff Types
+
+NOMAD supports diff types that satisfy idempotence through one of:
+
+1. **State replacement** (snapshot): `apply(_, diff) = decode(diff)`
+   - Trivially idempotent: setting state to X twice = X
+   - Example: Terminal cell grid overwrite
+
+2. **Last-writer-wins merge**: `apply(state, diff) = {**state, **diff}`
+   - Idempotent for non-conflicting keys
+   - Example: Key-value configuration updates
+
+3. **Delta-CRDT semantics**: Diffs that form a join-semilattice
+   - Reference: Almeida et al., "Delta State Replicated Data Types" (2018)
+   - Example: G-Counter increments, OR-Set additions
+
+### Convergence Guarantee
+
+**Theorem**: Given idempotent diffs and version monotonicity, arbitrary packet
+reordering, duplication, and loss (with eventual delivery) results in state convergence.
+
+**Proof sketch**: See `formal/tlaplus/SyncLayer.tla` invariants:
+- `MonotonicStateNums`: Versions only increase
+- `PeerNeverAhead`: Receiver tracks sender's highest version
+- Idempotence ensures duplicate application is harmless
+
+> **Note**: Composition-based diffs (e.g., "insert at position N") are NOT idempotent
+> and require application-layer transformation. NOMAD's sync layer assumes idempotence.
+
+---
+
 ## State Type Interface
 
 A valid NOMAD state type MUST implement:
@@ -392,13 +438,14 @@ See `formal/README.md` for instructions on running the verification tools.
 
 ## Test Mapping
 
-| Spec Section | Test File |
-|--------------|-----------|
-| Sync message format | `tests/unit/test_diff_encode.py` |
-| Diff encoding | `tests/unit/test_diff_encode.py` |
-| Diff decoding | `tests/unit/test_diff_decode.py` |
-| Idempotent application | `tests/unit/test_diff_apply.py` |
-| Basic sync flow | `tests/protocol/test_sync_flow.py` |
-| Convergence | `tests/protocol/test_sync_convergence.py` |
-| Edge cases | `tests/protocol/test_sync_edge_cases.py` |
-| Property-based tests | `tests/protocol/test_sync_properties.py` |
+| Spec Section | Test File(s) |
+|--------------|--------------|
+| Sync message format | `test_spec_diff_encode.py` |
+| Diff encoding | `test_spec_diff_encode.py` |
+| Diff decoding | `test_spec_diff_decode.py` |
+| Idempotent application | `test_spec_diff_apply.py` |
+| Sync flow | `test_e2e_sync_flow.py` |
+| Convergence | `test_e2e_sync_convergence.py` |
+| Edge cases | `test_spec_sync_edge_cases.py` |
+| Property-based tests | `test_spec_sync_properties.py` |
+| Resilience | `test_e2e_sync_resilience.py` |
